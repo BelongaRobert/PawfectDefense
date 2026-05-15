@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pawfect Defense - Cute Card Mockup</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #fef9f3;
+            background-image: radial-gradient(circle at 20% 50%, rgba(255,200,150,0.2) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(200,230,255,0.2) 0%, transparent 50%),
+                              radial-gradient(circle at 50% 80%, rgba(255,200,220,0.2) 0%, transparent 50%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            gap: 40px;
+            padding: 40px;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        .card {
+            width: 280px;
+            height: 420px;
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.08);
+            background: #fff;
+            border: 4px solid;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .card:hover {
+            transform: scale(1.08) translateY(-12px) rotate(-1deg);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 0 30px rgba(0,0,0,0.05);
+        }
+
+        .card.common {
+            border-color: #d1d5db;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1), inset 0 0 20px rgba(209,213,219,0.1);
+        }
+
+        .card.uncommon {
+            border-color: #86efac;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1), 0 0 25px rgba(134,239,172,0.3), inset 0 0 20px rgba(134,239,172,0.1);
+        }
+
+        .card.rare {
+            border-color: #fcd34d;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1), 0 0 30px rgba(252,211,77,0.4), inset 0 0 20px rgba(252,211,77,0.1);
+        }
+
+        .card-header {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 15px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .card.common .card-header {
+            background: linear-gradient(180deg, #f3f4f6 0%, #e5e7eb 100%);
+        }
+
+        .card.uncommon .card-header {
+            background: linear-gradient(180deg, #dcfce7 0%, #bbf7d0 100%);
+        }
+
+        .card.rare .card-header {
+            background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+        }
+
+        .card-name {
+            font-family: 'Fredoka One', cursive;
+            font-size: 20px;
+            color: #374151;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .card-art {
+            height: 180px;
+            margin: 8px 12px;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            border: 3px solid rgba(255,255,255,0.8);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .card-art-bg {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .card.common .card-art-bg {
+            background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 50%, #ede9fe 100%);
+        }
+
+        .card.uncommon .card-art-bg {
+            background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 50%, #ecfccb 100%);
+        }
+
+        .card.rare .card-art-bg {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fed7aa 100%);
+        }
+
+        .pet-silhouette {
+            font-size: 90px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .pet-type-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #6b7280;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .rarity-stars {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            display: flex;
+            gap: 2px;
+            background: rgba(255,255,255,0.9);
+            padding: 3px 6px;
+            border-radius: 10px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        .rarity-stars span {
+            font-size: 12px;
+        }
+
+        .card-body {
+            padding: 12px 16px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #4b5563;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .card-description strong {
+            color: #1f2937;
+            font-weight: 700;
+        }
+
+        .cost-orb {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            border: 3px solid #93c5fd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.4), inset 0 2px 4px rgba(255,255,255,0.4);
+            z-index: 3;
+        }
+
+        .cost-orb span {
+            font-family: 'Fredoka One', cursive;
+            font-size: 22px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .paw-print {
+            position: absolute;
+            bottom: 18px;
+            right: 14px;
+            opacity: 0.15;
+            font-size: 28px;
+        }
+
+        .card-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(0deg, rgba(0,0,0,0.03) 0%, transparent 100%);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 8px;
+        }
+
+        .breed-tag {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #9ca3af;
+            font-weight: 700;
+            background: rgba(255,255,255,0.8);
+            padding: 3px 10px;
+            border-radius: 10px;
+        }
+
+        .decoration {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        .decoration-1 {
+            top: 60px;
+            left: 15px;
+            font-size: 20px;
+            transform: rotate(-15deg);
+        }
+
+        .decoration-2 {
+            top: 70px;
+            right: 20px;
+            font-size: 16px;
+            transform: rotate(20deg);
+        }
+
+        .decoration-3 {
+            bottom: 120px;
+            left: 20px;
+            font-size: 14px;
+            transform: rotate(-10deg);
+        }
+    </style>
+</head>
+<body>
+    <!-- Common Card: Smelly Chihuahua -->
+    <div class="card common">
+        <div class="card-header">
+            <div class="rarity-stars"><span>⭐</span></div>
+            <span class="card-name">Smelly Chihuahua</span>
+        </div>
+        <div class="card-art">
+            <div class="card-art-bg">
+                <span class="pet-silhouette">🐕</span>
+                <div class="pet-type-badge">🐕 Dog</div>
+            </div>
+        </div>
+        <div class="decoration decoration-1">💨</div>
+        <div class="decoration decoration-2">🦴</div>
+        <div class="card-body">
+            <p class="card-description">Deal <strong>3 damage</strong>.<br>Apply <strong>1 Stink</strong> (enemy has 50% miss chance)</p>
+        </div>
+        <div class="cost-orb"><span>1</span></div>
+        <div class="paw-print">🐾</div>
+        <div class="card-footer">
+            <span class="breed-tag">Chihuahua</span>
+        </div>
+    </div>
+
+    <!-- Uncommon Card: Lazy Pitbull -->
+    <div class="card uncommon">
+        <div class="card-header">
+            <div class="rarity-stars"><span>⭐</span><span>⭐</span></div>
+            <span class="card-name">Lazy Pitbull</span>
+        </div>
+        <div class="card-art">
+            <div class="card-art-bg">
+                <span class="pet-silhouette">🐶</span>
+                <div class="pet-type-badge">🐕 Dog</div>
+            </div>
+        </div>
+        <div class="decoration decoration-1">😴</div>
+        <div class="decoration decoration-2">💤</div>
+        <div class="card-body">
+            <p class="card-description">Deal <strong>6 damage</strong>.<br>Gain <strong>6 Block</strong>.<br>But <strong>exhaust</strong> this card.</p>
+        </div>
+        <div class="cost-orb"><span>2</span></div>
+        <div class="paw-print">🐾</div>
+        <div class="card-footer">
+            <span class="breed-tag">Pitbull</span>
+        </div>
+    </div>
+
+    <!-- Rare Card: Dramatic Basset Hound -->
+    <div class="card rare">
+        <div class="card-header">
+            <div class="rarity-stars"><span>⭐</span><span>⭐</span><span>⭐</span></div>
+            <span class="card-name">Dramatic Basset Hound</span>
+        </div>
+        <div class="card-art">
+            <div class="card-art-bg">
+                <span class="pet-silhouette">🐕</span>
+                <div class="pet-type-badge">🐕 Dog</div>
+            </div>
+        </div>
+        <div class="decoration decoration-1">😢</div>
+        <div class="decoration decoration-2">🎭</div>
+        <div class="card-body">
+            <p class="card-description">Deal <strong>8 damage</strong>.<br>Apply <strong>2 Vulnerable</strong>.<br>If enemy attacks, they take <strong>3 guilt damage</strong>.</p>
+        </div>
+        <div class="cost-orb"><span>2</span></div>
+        <div class="paw-print">🐾</div>
+        <div class="card-footer">
+            <span class="breed-tag">Basset Hound</span>
+        </div>
+    </div>
+</body>
+</html>

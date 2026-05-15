@@ -1,0 +1,188 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!47 &1
+QualitySettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 5
+  m_CurrentQuality: 2
+  m_QualitySettings:
+  - serializedVersion: 2
+    m_Name: Very Low
+    m_PixelLightCount: 0
+    m_Shadows: 0
+    m_ShadowResolution: 0
+    m_ShadowProjection: 1
+    m_ShadowCascades: 1
+    m_ShadowDistance: 15
+    m_ShadowNearPlaneOffset: 3
+    m_ShadowCascade2Split: 0.33333334
+    m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+    m_ShadowmaskMode: 0
+    m_SkinWeights: 1
+    m_TextureQuality: 1
+    m_AnisotropicTextures: 0
+    m_AntiAliasing: 0
+    m_SoftParticles: 0
+    m_SoftVegetation: 0
+    m_RealtimeReflectionProbes: 0
+    m_BillboardsFaceCameraPosition: 0
+    m_VSyncCount: 0
+    m_LodBias: 0.3
+    m_MaximumLODLevel: 0
+    m_SRPBatching: 1
+    m_RenderPipeline: {fileID: 0}
+    m_RenderingPath: 1
+    m_MobileRenderingPath: 1
+    m_UseSRPBatcher: 1
+  - serializedVersion: 2
+    m_Name: Low
+    m_PixelLightCount: 0
+    m_Shadows: 0
+    m_ShadowResolution: 0
+    m_ShadowProjection: 1
+    m_ShadowCascades: 1
+    m_ShadowDistance: 20
+    m_ShadowNearPlaneOffset: 3
+    m_ShadowCascade2Split: 0.33333334
+    m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+    m_ShadowmaskMode: 0
+    m_SkinWeights: 2
+    m_TextureQuality: 0
+    m_AnisotropicTextures: 0
+    m_AntiAliasing: 0
+    m_SoftParticles: 0
+    m_SoftVegetation: 0
+    m_RealtimeReflectionProbes: 0
+    m_BillboardsFaceCameraPosition: 0
+    m_VSyncCount: 0
+    m_LodBias: 0.4
+    m_MaximumLODLevel: 0
+    m_SRPBatching: 1
+    m_RenderPipeline: {fileID: 0}
+    m_RenderingPath: 1
+    m_MobileRenderingPath: 1
+    m_UseSRPBatcher: 1
+  - serializedVersion: 2
+    m_Name: Medium
+    m_PixelLightCount: 1
+    m_Shadows: 1
+    m_ShadowResolution: 0
+    m_ShadowProjection: 1
+    m_ShadowCascades: 1
+    m_ShadowDistance: 20
+    m_ShadowNearPlaneOffset: 3
+    m_ShadowCascade2Split: 0.33333334
+    m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+    m_ShadowmaskMode: 0
+    m_SkinWeights: 2
+    m_TextureQuality: 0
+    m_AnisotropicTextures: 1
+    m_AntiAliasing: 0
+    m_SoftParticles: 0
+    m_SoftVegetation: 0
+    m_RealtimeReflectionProbes: 0
+    m_BillboardsFaceCameraPosition: 0
+    m_VSyncCount: 1
+    m_LodBias: 0.7
+    m_MaximumLODLevel: 0
+    m_SRPBatching: 1
+    m_RenderPipeline: {fileID: 0}
+    m_RenderingPath: 1
+    m_MobileRenderingPath: 1
+    m_UseSRPBatcher: 1
+  - serializedVersion: 2
+    m_Name: High
+    m_PixelLightCount: 2
+    m_Shadows: 2
+    m_ShadowResolution: 1
+    m_ShadowProjection: 1
+    m_ShadowCascades: 2
+    m_ShadowDistance: 40
+    m_ShadowNearPlaneOffset: 3
+    m_ShadowCascade2Split: 0.33333334
+    m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+    m_ShadowmaskMode: 0
+    m_SkinWeights: 2
+    m_TextureQuality: 0
+    m_AnisotropicTextures: 1
+    m_AntiAliasing: 0
+    m_SoftParticles: 0
+    m_SoftVegetation: 1
+    m_RealtimeReflectionProbes: 1
+    m_BillboardsFaceCameraPosition: 1
+    m_VSyncCount: 1
+    m_LodBias: 1
+    m_MaximumLODLevel: 0
+    m_SRPBatching: 1
+    m_RenderPipeline: {fileID: 0}
+    m_RenderingPath: 1
+    m_MobileRenderingPath: 1
+    m_UseSRPBatcher: 1
+  - serializedVersion: 2
+    m_Name: Very High
+    m_PixelLightCount: 3
+    m_Shadows: 2
+    m_ShadowResolution: 2
+    m_ShadowProjection: 1
+    m_ShadowCascades: 2
+    m_ShadowDistance: 70
+    m_ShadowNearPlaneOffset: 3
+    m_ShadowCascade2Split: 0.33333334
+    m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+    m_ShadowmaskMode: 0
+    m_SkinWeights: 4
+    m_TextureQuality: 0
+    m_AnisotropicTextures: 2
+    m_AntiAliasing: 2
+    m_SoftParticles: 1
+    m_SoftVegetation: 1
+    m_RealtimeReflectionProbes: 1
+    m_BillboardsFaceCameraPosition: 1
+    m_VSyncCount: 1
+    m_LodBias: 1.5
+    m_MaximumLODLevel: 0
+    m_SRPBatching: 1
+    m_RenderPipeline: {fileID: 0}
+    m_RenderingPath: 1
+    m_MobileRenderingPath: 1
+    m_UseSRPBatcher: 1
+  - serializedVersion: 2
+    m_Name: Ultra
+    m_PixelLightCount: 4
+    m_Shadows: 2
+    m_ShadowResolution: 2
+    m_ShadowProjection: 1
+    m_ShadowCascades: 4
+    m_ShadowDistance: 150
+    m_ShadowNearPlaneOffset: 3
+    m_ShadowCascade2Split: 0.33333334
+    m_ShadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
+    m_ShadowmaskMode: 0
+    m_SkinWeights: 4
+    m_TextureQuality: 0
+    m_AnisotropicTextures: 2
+    m_AntiAliasing: 2
+    m_SoftParticles: 1
+    m_SoftVegetation: 1
+    m_RealtimeReflectionProbes: 1
+    m_BillboardsFaceCameraPosition: 1
+    m_VSyncCount: 1
+    m_LodBias: 2
+    m_MaximumLODLevel: 0
+    m_SRPBatching: 1
+    m_RenderPipeline: {fileID: 0}
+    m_RenderingPath: 1
+    m_MobileRenderingPath: 1
+    m_UseSRPBatcher: 1
+  m_PerPlatformDefaultQuality:
+    Android: 1
+    Lumin: 2
+    Nintendo Switch: 2
+    PS4: 2
+    Stadia: 2
+    Standalone: 2
+    WebGL: 1
+    Windows Store Apps: 2
+    XboxOne: 2
+    iPhone: 1
+    tvOS: 1
