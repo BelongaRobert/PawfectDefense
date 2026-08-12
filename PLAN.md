@@ -21,12 +21,12 @@ Matching without management is a puzzle with no pressure. Management without mat
 
 ## Platform choice (least work for you)
 
-**Browser prototype (`web/`)** — not Unity.
+**Browser + Capacitor mobile shell (`web/`)** — not a Unity rewrite.
 
-- No Unity Hub, scene wiring, prefabs, or iOS toolchain
-- Open the PR preview or run `npm install && npm run dev` and play
-- Iterate design in hours instead of Editor sessions
-- Unity combat code stays as reference; port later only if you want App Store
+- Same TypeScript game for Safari, Home Screen PWA, and native iOS/Android
+- Tweak mechanics once in `web/src/game/`
+- See [`web/MOBILE.md`](web/MOBILE.md) for TestFlight / Xcode steps
+- Unity combat code stays as reference under `Assets/`
 
 ---
 

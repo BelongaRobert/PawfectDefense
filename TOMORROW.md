@@ -1,15 +1,14 @@
-# Next steps (Pawfect Shelter)
+# Next steps
 
-## Play the new prototype
-```bash
-cd web && npm install && npm run dev
-```
+## Mobile
+- Home Screen PWA: Safari → Share → Add to Home Screen
+- Native: see `web/MOBILE.md` (`npm run build:app` then Xcode)
 
-## Design follow-ups worth trying
-- Tune match scoring / return rates after a few runs
-- Add foster as an explicit care action
-- Meta unlocks between seasons
-- Replace emoji with real pet art when ready
+## Mechanics to tweak next (when you're ready)
+- Match scoring weights / return rates
+- Starting capacity, supplies, energy
+- Day count & win thresholds
+- Event frequency and relic power
+- New species / adopter archetypes
 
-## Legacy Unity
-Combat deck-builder code under `Assets/` is frozen reference only until a mobile port is needed.
+All of that lives in `web/src/game/` — one place for web + mobile.

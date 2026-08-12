@@ -31,7 +31,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - run: npm run build:pages
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

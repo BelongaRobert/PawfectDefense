@@ -12,15 +12,12 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints (works on desktop or phone on the same Wi‑Fi if you use `--host`).
+### On iPhone — app-style (no install store needed)
+1. Open the game in **Safari**
+2. Share → **Add to Home Screen**
+3. Launch from your home screen icon
 
-### On iPhone / iPad (Safari)
-This is a mobile-friendly web app — no App Store install needed.
-
-Once GitHub Pages is on, open:
-**https://belongarobert.github.io/PawfectDefense/**
-
-(Add to Home Screen from the Share sheet for a full-screen icon.)
+See [`web/MOBILE.md`](./web/MOBILE.md) for **Capacitor / TestFlight / App Store** setup (same codebase).
 
 ### Goal
 Survive **10 days** with **≥ 6 adoptions** and **≥ 40 reputation**.

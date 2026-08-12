@@ -417,6 +417,15 @@ h3 {
   color: rgba(231, 244, 238, 0.9);
 }
 
+.native-app body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.native-app .btn:active {
+  transform: scale(0.98);
+}
+
 @media (max-width: 720px) {
   #app {
     width: calc(100% - 1rem);

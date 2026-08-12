@@ -1,4 +1,5 @@
 import './style.css';
+import { initNativeShell } from './native';
 import {
   acceptIntake,
   advanceDay,
@@ -20,6 +21,8 @@ import {
 } from './game/game';
 import { TRAIT_LABELS, type Adopter, type Pet, type RunState } from './game/types';
 import { effectiveCapacity } from './game/generators';
+
+void initNativeShell();
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 

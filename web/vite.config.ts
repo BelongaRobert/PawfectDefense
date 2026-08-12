@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
 
-// Local/tunnel: `/`. GitHub Pages project site needs the repo name prefix.
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/PawfectDefense/' : '/',
+/**
+ * Base path:
+ * - `/` for local, Capacitor, tunnels
+ * - `/PawfectDefense/` when building for GitHub Pages (`VITE_BASE=...`)
+ */
+export default defineConfig({
+  base: process.env.VITE_BASE || '/',
   server: {
     host: true,
     allowedHosts: true,
@@ -11,4 +15,4 @@ export default defineConfig(({ command }) => ({
     host: true,
     allowedHosts: true,
   },
-}));
+});
