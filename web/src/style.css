@@ -453,6 +453,13 @@ h3 {
   font-size: 0.95rem !important;
 }
 
+.victory-screen h1 {
+  background: linear-gradient(120deg, #ffe6b0, #fff8e8 45%, #c8f0d8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .match-row {
   display: grid;
   gap: 0.55rem;

@@ -10,6 +10,7 @@ export type Phase =
   | 'event'
   | 'relic'
   | 'summary'
+  | 'victory'
   | 'ended';
 
 export type Stress = 0 | 1 | 2 | 3;
@@ -107,6 +108,13 @@ export interface RunState {
   viralBoost: boolean;
   fosterSlots: number;
   freeTreatUsed: boolean;
+  /** Past the Day 10 season — keep going until you retire or collapse. */
+  endless: boolean;
+  /** Career win already written when the congratulations screen appeared. */
+  seasonRecorded: boolean;
+  /** Adoptions/returns already banked into the profile (for endless deltas). */
+  statsBankedAdoptions: number;
+  statsBankedReturns: number;
 }
 
 export const TRAIT_LABELS: Record<keyof PetTraits, string> = {

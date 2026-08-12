@@ -15,6 +15,7 @@ import {
   loadRun,
   recordSeasonEnd,
   recordSeasonStart,
+  bankEndlessProgress,
   saveProfile,
   saveRun,
   setProfileName,
@@ -409,25 +410,79 @@ function goSummary(): void {
 
 export function advanceDay(): void {
   if (state.phase !== 'summary') return;
-  if (state.day >= state.maxDays) {
+
+  // Season finale (Day 10) — win opens congratulations + Endless Mode
+  if (!state.endless && state.day >= state.maxDays) {
     const won = state.reputation >= 40 && state.adoptions >= 6;
+    if (won) {
+      goToVictory();
+      return;
+    }
     endRun(
-      won,
-      won
-        ? `Season complete! ${state.adoptions} adoptions and reputation ${state.reputation}.`
-        : `Season over, but you needed ≥6 adoptions and ≥40 rep (had ${state.adoptions} / ${state.reputation}).`,
+      false,
+      `Season over, but you needed ≥6 adoptions and ≥40 rep (had ${state.adoptions} / ${state.reputation}).`,
     );
     return;
   }
+
   state.day += 1;
   beginDay();
+}
+
+function goToVictory(): void {
+  state.won = true;
+  state.phase = 'victory';
+  state.endReason = `Season complete! ${state.adoptions} adoptions and reputation ${state.reputation}.`;
+  if (!state.seasonRecorded) {
+    profile = recordSeasonEnd(profile, state);
+    state.seasonRecorded = true;
+  }
+  log('Congratulations — the season is won. Endless Mode is unlocked.', 'good');
+  emit({ flash: 'Season win saved to your profile' });
+}
+
+/** Keep playing past Day 10 with rising pressure. */
+export function enterEndlessMode(): void {
+  if (state.phase !== 'victory') return;
+  state.endless = true;
+  state.endReason = undefined;
+  log('Endless Mode — keep the doors open as long as you can.', 'good');
+  state.supplies += 3;
+  state.gold += 10;
+  state.day += 1;
+  beginDay();
+  emit({ flash: 'Endless Mode — progress still auto-saves' });
+}
+
+/** Leave the congratulations screen without endless. */
+export function finishAfterVictory(): void {
+  if (state.phase !== 'victory') return;
+  state.phase = 'ended';
+  clearRun();
+  emit({ persist: false, flash: 'Season recorded to your profile' });
+}
+
+/** Retire during endless from the day summary. */
+export function retireEndless(): void {
+  if (!state.endless || state.phase !== 'summary') return;
+  state.won = true;
+  state.endReason = `Retired on Day ${state.day} in Endless Mode with ${state.adoptions} adoptions.`;
+  profile = bankEndlessProgress(profile, state);
+  state.phase = 'ended';
+  clearRun();
+  emit({ persist: false, flash: 'Endless run saved to your profile' });
 }
 
 function endRun(won: boolean, reason: string): void {
   state.won = won;
   state.endReason = reason;
   state.phase = 'ended';
-  profile = recordSeasonEnd(profile, state);
+  if (state.endless || state.seasonRecorded) {
+    profile = bankEndlessProgress(profile, state);
+  } else {
+    profile = recordSeasonEnd(profile, state);
+    state.seasonRecorded = true;
+  }
   clearRun();
   emit({ persist: false, flash: 'Season recorded to your profile' });
 }

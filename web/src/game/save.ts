@@ -17,6 +17,7 @@ export interface UserProfile {
     totalReturns: number;
     bestReputation: number;
     bestAdoptionsInSeason: number;
+    endlessBestDay: number;
   };
 }
 
@@ -44,6 +45,10 @@ interface SerializableRun {
   viralBoost: boolean;
   fosterSlots: number;
   freeTreatUsed: boolean;
+  endless: boolean;
+  seasonRecorded: boolean;
+  statsBankedAdoptions: number;
+  statsBankedReturns: number;
   pendingEventId: string | null;
 }
 
@@ -67,6 +72,7 @@ export function defaultProfile(): UserProfile {
       totalReturns: 0,
       bestReputation: 0,
       bestAdoptionsInSeason: 0,
+      endlessBestDay: 0,
     },
   };
 }
@@ -115,6 +121,29 @@ export function recordSeasonEnd(profile: UserProfile, run: RunState): UserProfil
     profile.stats.bestAdoptionsInSeason,
     run.adoptions,
   );
+  run.statsBankedAdoptions = run.adoptions;
+  run.statsBankedReturns = run.returns;
+  if (run.endless || run.day > run.maxDays) {
+    profile.stats.endlessBestDay = Math.max(profile.stats.endlessBestDay, run.day);
+  }
+  saveProfile(profile);
+  return profile;
+}
+
+/** Bank adoption/return deltas + bests after endless continue (no extra win/loss). */
+export function bankEndlessProgress(profile: UserProfile, run: RunState): UserProfile {
+  const dAdopt = Math.max(0, run.adoptions - (run.statsBankedAdoptions || 0));
+  const dReturn = Math.max(0, run.returns - (run.statsBankedReturns || 0));
+  profile.stats.totalAdoptions += dAdopt;
+  profile.stats.totalReturns += dReturn;
+  profile.stats.bestReputation = Math.max(profile.stats.bestReputation, run.reputation);
+  profile.stats.bestAdoptionsInSeason = Math.max(
+    profile.stats.bestAdoptionsInSeason,
+    run.adoptions,
+  );
+  profile.stats.endlessBestDay = Math.max(profile.stats.endlessBestDay, run.day);
+  run.statsBankedAdoptions = run.adoptions;
+  run.statsBankedReturns = run.returns;
   saveProfile(profile);
   return profile;
 }
@@ -151,6 +180,10 @@ export function saveRun(run: RunState): void {
       viralBoost: run.viralBoost,
       fosterSlots: run.fosterSlots,
       freeTreatUsed: run.freeTreatUsed,
+      endless: !!run.endless,
+      seasonRecorded: !!run.seasonRecorded,
+      statsBankedAdoptions: run.statsBankedAdoptions || 0,
+      statsBankedReturns: run.statsBankedReturns || 0,
       pendingEventId: run.pendingEvent?.id ?? null,
     },
   };
@@ -174,6 +207,10 @@ export function loadRun(): RunState | null {
     }
     return {
       ...rest,
+      endless: !!rest.endless,
+      seasonRecorded: !!rest.seasonRecorded,
+      statsBankedAdoptions: rest.statsBankedAdoptions || 0,
+      statsBankedReturns: rest.statsBankedReturns || 0,
       phase,
       pendingEvent,
     };

@@ -11,7 +11,9 @@ import {
   continueRun,
   declineIntake,
   doCare,
+  enterEndlessMode,
   finishAdoption,
+  finishAfterVictory,
   finishCare,
   finishIntake,
   getProfile,
@@ -19,6 +21,7 @@ import {
   getState,
   pickRelic,
   previewMatch,
+  retireEndless,
   saveCheckpoint,
   skipRelic,
   startRun,
@@ -43,6 +46,11 @@ function render(): void {
   if (s.phase === 'title') {
     app.innerHTML = renderTitle();
     bindTitle();
+    return;
+  }
+  if (s.phase === 'victory') {
+    app.innerHTML = renderVictory(s);
+    bindVictory();
     return;
   }
   if (s.phase === 'ended') {
@@ -85,6 +93,7 @@ function renderTitle(): string {
                 <span>${stats.seasonsWon} wins</span>
                 <span>${stats.totalAdoptions} adoptions</span>
                 <span>Best rep ${stats.bestReputation}</span>
+                ${stats.endlessBestDay ? `<span>Endless Day ${stats.endlessBestDay}</span>` : ''}
               </div>
             </div>`
           : ''
@@ -124,14 +133,36 @@ function bindTitle(): void {
   });
 }
 
+function renderVictory(s: RunState): string {
+  const profile = getProfile();
+  return `
+    <section class="ended shell victory-screen">
+      <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Season cleared</div>
+      <h1>Congratulations!</h1>
+      <p>You kept the shelter standing for ${s.maxDays} days — ${s.adoptions} pets found homes with reputation ${s.reputation}.</p>
+      <p>Want to keep going? Endless Mode raises the pressure: busier intake, pickier adopters, and inspections that never quit.</p>
+      <p class="ended-profile">${escapeHtml(profile.name || 'Manager')} · career wins ${profile.stats.seasonsWon}${profile.stats.endlessBestDay ? ` · endless best Day ${profile.stats.endlessBestDay}` : ''}</p>
+      <div class="row-actions">
+        <button class="btn" id="endless">Endless Mode</button>
+        <button class="btn secondary" id="finish-season">Finish season</button>
+      </div>
+    </section>
+  `;
+}
+
+function bindVictory(): void {
+  document.getElementById('endless')?.addEventListener('click', () => enterEndlessMode());
+  document.getElementById('finish-season')?.addEventListener('click', () => finishAfterVictory());
+}
+
 function renderEnded(s: RunState): string {
   const profile = getProfile();
   return `
     <section class="ended shell">
       <h1>${s.won ? 'Homes found.' : 'Season closed.'}</h1>
       <p>${escapeHtml(s.endReason ?? '')}</p>
-      <p>Adoptions ${s.adoptions} · Returns ${s.returns} · Gold ${s.gold} · Rep ${s.reputation}</p>
-      <p class="ended-profile">Saved to ${escapeHtml(profile.name || 'your profile')} · ${profile.stats.seasonsWon} career wins · ${profile.stats.totalAdoptions} career adoptions</p>
+      <p>Adoptions ${s.adoptions} · Returns ${s.returns} · Gold ${s.gold} · Rep ${s.reputation}${s.endless || s.day > s.maxDays ? ` · Day ${s.day}` : ''}</p>
+      <p class="ended-profile">Saved to ${escapeHtml(profile.name || 'your profile')} · ${profile.stats.seasonsWon} career wins · ${profile.stats.totalAdoptions} career adoptions${profile.stats.endlessBestDay ? ` · endless best Day ${profile.stats.endlessBestDay}` : ''}</p>
       <div class="row-actions">
         <button class="btn" id="again">Run again</button>
         <button class="btn secondary" id="to-title">Profile</button>
@@ -159,7 +190,7 @@ function renderHud(s: RunState): string {
   return `
     <div class="hud">
       <div class="brand-lockup">
-        <div class="eyebrow">Day ${s.day} / ${s.maxDays}${profile.name ? ` · ${escapeHtml(profile.name)}` : ''}</div>
+        <div class="eyebrow">${s.endless ? `Endless · Day ${s.day}` : `Day ${s.day} / ${s.maxDays}`}${profile.name ? ` · ${escapeHtml(profile.name)}` : ''}</div>
         <h1>Pawfect Shelter</h1>
         <div style="opacity:.8;font-weight:700">${phaseLabel[s.phase] ?? s.phase}</div>
         ${flash ? `<div class="save-flash">${escapeHtml(flash)}</div>` : ''}
@@ -410,17 +441,26 @@ function renderRelic(s: RunState): string {
 
 function renderSummary(s: RunState): string {
   const relics = s.relics.map((r) => `<span class="tag">${r.emoji} ${escapeHtml(r.name)}</span>`).join('') || '<span class="tag">None yet</span>';
+  const blurb = s.endless
+    ? `Endless Mode — survive as long as you can. ${s.adoptions} adoptions, ${s.reputation} rep.`
+    : `Win by Day ${s.maxDays} with at least 6 adoptions and 40 reputation. Currently ${s.adoptions} adoptions, ${s.reputation} rep.`;
+  const nextLabel = s.endless
+    ? 'Next day'
+    : s.day >= s.maxDays
+      ? 'See results'
+      : 'Next day';
   return `
     <section class="panel">
       <header>
         <div>
-          <h2>Day ${s.day} wrapped</h2>
-          <p>Win by Day ${s.maxDays} with at least 6 adoptions and 40 reputation. Currently ${s.adoptions} adoptions, ${s.reputation} rep.</p>
+          <h2>Day ${s.day} wrapped${s.endless ? ' · Endless' : ''}</h2>
+          <p>${blurb}</p>
         </div>
       </header>
       <div class="tags">${relics}</div>
       <div class="row-actions">
-        <button class="btn" id="next-day">${s.day >= s.maxDays ? 'Finish season' : 'Next day'}</button>
+        <button class="btn" id="next-day">${nextLabel}</button>
+        ${s.endless ? '<button class="btn ghost" id="retire-endless">Retire shelter</button>' : ''}
       </div>
     </section>
   `;
@@ -477,6 +517,9 @@ function bindPhase(s: RunState): void {
 
   if (s.phase === 'summary') {
     document.getElementById('next-day')?.addEventListener('click', () => advanceDay());
+    document.getElementById('retire-endless')?.addEventListener('click', () => {
+      if (confirm('Retire from Endless Mode and bank this run?')) retireEndless();
+    });
   }
 }
 

@@ -55,6 +55,10 @@ export function createRun(seed = Date.now() % 1e9): RunState {
     viralBoost: false,
     fosterSlots: 0,
     freeTreatUsed: false,
+    endless: false,
+    seasonRecorded: false,
+    statsBankedAdoptions: 0,
+    statsBankedReturns: 0,
   };
 }
 
@@ -120,15 +124,18 @@ export function generateAdopter(rng: () => number, harder: boolean): Adopter {
 
 export function generateIntake(state: RunState): Pet[] {
   const rng = mulberry32(state.seed + state.day * 97);
-  const count = state.day <= 2 ? 1 : chance(rng, 0.35) ? 2 : 1;
+  let count = state.day <= 2 ? 1 : chance(rng, 0.35) ? 2 : 1;
+  if (state.endless) {
+    count = chance(rng, 0.45) ? 3 : 2;
+  }
   return Array.from({ length: count }, () => generatePet(rng, state.day === 1));
 }
 
 export function generateAdopters(state: RunState): Adopter[] {
   const rng = mulberry32(state.seed + state.day * 191 + 3);
-  const harder = state.day >= 6 || state.viralBoost;
+  const harder = state.day >= 6 || state.viralBoost || state.endless;
   const base = state.day <= 3 ? 2 : 3;
-  const extra = state.viralBoost ? 1 : 0;
+  const extra = (state.viralBoost ? 1 : 0) + (state.endless && state.day >= 15 ? 1 : 0);
   return Array.from({ length: base + extra }, () => generateAdopter(rng, harder));
 }
 
@@ -140,10 +147,10 @@ export function availableRelics(state: RunState): Relic[] {
 export function makeDayEvent(state: RunState): DayEvent | null {
   const rng = mulberry32(state.seed + state.day * 313 + 9);
   if (state.day === 1) return null;
-  if (state.day === 5 || state.day === 9) {
+  if (state.day === 5 || state.day === 9 || (state.endless && state.day % 5 === 0)) {
     return inspectionEvent();
   }
-  if (!chance(rng, 0.7)) return null;
+  if (!chance(rng, state.endless ? 0.85 : 0.7)) return null;
 
   const pool: DayEvent[] = [
     donationEvent(),
