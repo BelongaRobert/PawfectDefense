@@ -9,15 +9,36 @@ import {
 } from './generators';
 import { scoreMatch } from './match';
 import { mulberry32, pick } from './rng';
+import {
+  clearRun,
+  loadProfile,
+  loadRun,
+  recordSeasonEnd,
+  recordSeasonStart,
+  saveProfile,
+  saveRun,
+  setProfileName,
+  type UserProfile,
+} from './save';
 import type { Adopter, LogLine, MatchGrade, Pet, Relic, RunState, Stress } from './types';
 
 type Listener = () => void;
 
-let state: RunState = createRun();
+let state: RunState = { ...createRun(), phase: 'title', pets: [], log: [] };
+let profile: UserProfile = loadProfile();
+let saveFlash = '';
 const listeners = new Set<Listener>();
 
 export function getState(): RunState {
   return state;
+}
+
+export function getProfile(): UserProfile {
+  return profile;
+}
+
+export function getSaveFlash(): string {
+  return saveFlash;
 }
 
 export function subscribe(fn: Listener): () => void {
@@ -25,7 +46,15 @@ export function subscribe(fn: Listener): () => void {
   return () => listeners.delete(fn);
 }
 
-function emit(): void {
+function emit(opts?: { persist?: boolean; flash?: string }): void {
+  if (opts?.flash) saveFlash = opts.flash;
+  if (opts?.persist !== false && state.phase !== 'title') {
+    if (state.phase === 'ended') clearRun();
+    else {
+      saveRun(state);
+      if (!opts?.flash) saveFlash = 'Progress saved';
+    }
+  }
   for (const fn of listeners) fn();
 }
 
@@ -41,10 +70,42 @@ function setStress(pet: Pet, value: number): void {
   pet.stress = Math.max(0, Math.min(3, value)) as Stress;
 }
 
+/** Boot title screen; does not auto-resume a run. */
+export function bootToTitle(): void {
+  profile = loadProfile();
+  state = { ...createRun(), phase: 'title', pets: [], log: [] };
+  saveFlash = '';
+  emit({ persist: false });
+}
+
+export function updatePlayerName(name: string): void {
+  profile = setProfileName(name);
+  emit({ persist: false });
+}
+
 export function startRun(): void {
+  if (!profile.name.trim()) {
+    profile = setProfileName('Shelter Manager');
+  }
+  profile = recordSeasonStart(profile);
+  clearRun();
   state = createRun();
   beginDay();
-  emit();
+  emit({ flash: 'New season — progress will auto-save' });
+}
+
+export function continueRun(): boolean {
+  const saved = loadRun();
+  if (!saved) return false;
+  state = saved;
+  log('Welcome back — shelter progress restored.', 'good');
+  emit({ flash: 'Continue save loaded' });
+  return true;
+}
+
+export function abandonRun(): void {
+  clearRun();
+  bootToTitle();
 }
 
 export function beginDay(): void {
@@ -366,7 +427,16 @@ function endRun(won: boolean, reason: string): void {
   state.won = won;
   state.endReason = reason;
   state.phase = 'ended';
-  emit();
+  profile = recordSeasonEnd(profile, state);
+  clearRun();
+  emit({ persist: false, flash: 'Season recorded to your profile' });
+}
+
+export function saveCheckpoint(): void {
+  if (state.phase === 'title' || state.phase === 'ended') return;
+  saveRun(state);
+  saveProfile(profile);
+  emit({ persist: false, flash: 'Checkpoint saved' });
 }
 
 export function previewMatch(adopterId: string, petId: string) {

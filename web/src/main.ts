@@ -1,24 +1,32 @@
 import './style.css';
 import { initNativeShell } from './native';
 import {
+  abandonRun,
   acceptIntake,
   advanceDay,
   assignMatch,
+  bootToTitle,
   chooseEvent,
   clearMatch,
+  continueRun,
   declineIntake,
   doCare,
   finishAdoption,
   finishCare,
   finishIntake,
+  getProfile,
+  getSaveFlash,
   getState,
   pickRelic,
   previewMatch,
+  saveCheckpoint,
   skipRelic,
   startRun,
   subscribe,
+  updatePlayerName,
   type CareAction,
 } from './game/game';
+import { continueSummary, hasContinue } from './game/save';
 import { TRAIT_LABELS, type Adopter, type Pet, type RunState } from './game/types';
 import { effectiveCapacity } from './game/generators';
 
@@ -26,6 +34,7 @@ void initNativeShell();
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
+bootToTitle();
 subscribe(render);
 render();
 
@@ -53,30 +62,79 @@ function render(): void {
 }
 
 function renderTitle(): string {
+  const profile = getProfile();
+  const cont = continueSummary();
+  const stats = profile.stats;
   return `
     <section class="title-screen shell">
       <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Roguelike shelter sim</div>
       <h1>Pawfect Shelter</h1>
       <p>Take in animals under tight kennels, keep them calm, and match each one to the right home before the season ends.</p>
+
+      <label class="profile-field">
+        <span>Your name</span>
+        <input id="player-name" type="text" maxlength="24" placeholder="Shelter manager"
+          value="${escapeHtml(profile.name)}" autocomplete="nickname" />
+      </label>
+
+      ${
+        profile.name || stats.seasonsStarted
+          ? `<div class="profile-card">
+              <div class="profile-card-title">${escapeHtml(profile.name || 'New manager')}</div>
+              <div class="profile-stats">
+                <span>${stats.seasonsWon} wins</span>
+                <span>${stats.totalAdoptions} adoptions</span>
+                <span>Best rep ${stats.bestReputation}</span>
+              </div>
+            </div>`
+          : ''
+      }
+
+      ${
+        cont
+          ? `<div class="continue-card">
+              <div>Saved season — Day ${cont.day}, ${cont.adoptions} adoptions, ${cont.reputation} rep</div>
+              <div class="row-actions" style="margin-top:.65rem">
+                <button class="btn" id="continue">Continue</button>
+                <button class="btn secondary" id="abandon">Abandon save</button>
+              </div>
+            </div>`
+          : ''
+      }
+
       <div class="row-actions">
-        <button class="btn" id="start">Start a season</button>
+        <button class="btn" id="start">${cont ? 'New season' : 'Start a season'}</button>
       </div>
     </section>
   `;
 }
 
 function bindTitle(): void {
-  document.getElementById('start')?.addEventListener('click', () => startRun());
+  const nameInput = document.getElementById('player-name') as HTMLInputElement | null;
+  nameInput?.addEventListener('change', () => updatePlayerName(nameInput.value));
+  nameInput?.addEventListener('blur', () => updatePlayerName(nameInput.value));
+  document.getElementById('start')?.addEventListener('click', () => {
+    if (nameInput) updatePlayerName(nameInput.value);
+    if (hasContinue() && !confirm('Start a new season? Your saved run will be replaced.')) return;
+    startRun();
+  });
+  document.getElementById('continue')?.addEventListener('click', () => continueRun());
+  document.getElementById('abandon')?.addEventListener('click', () => {
+    if (confirm('Abandon the saved season?')) abandonRun();
+  });
 }
 
 function renderEnded(s: RunState): string {
+  const profile = getProfile();
   return `
     <section class="ended shell">
       <h1>${s.won ? 'Homes found.' : 'Season closed.'}</h1>
-      <p>${s.endReason ?? ''}</p>
+      <p>${escapeHtml(s.endReason ?? '')}</p>
       <p>Adoptions ${s.adoptions} · Returns ${s.returns} · Gold ${s.gold} · Rep ${s.reputation}</p>
+      <p class="ended-profile">Saved to ${escapeHtml(profile.name || 'your profile')} · ${profile.stats.seasonsWon} career wins · ${profile.stats.totalAdoptions} career adoptions</p>
       <div class="row-actions">
         <button class="btn" id="again">Run again</button>
+        <button class="btn secondary" id="to-title">Profile</button>
       </div>
     </section>
   `;
@@ -84,9 +142,12 @@ function renderEnded(s: RunState): string {
 
 function bindEnded(): void {
   document.getElementById('again')?.addEventListener('click', () => startRun());
+  document.getElementById('to-title')?.addEventListener('click', () => bootToTitle());
 }
 
 function renderHud(s: RunState): string {
+  const profile = getProfile();
+  const flash = getSaveFlash();
   const phaseLabel: Record<string, string> = {
     intake: 'Morning intake',
     care: 'Care shift',
@@ -98,9 +159,10 @@ function renderHud(s: RunState): string {
   return `
     <div class="hud">
       <div class="brand-lockup">
-        <div class="eyebrow">Day ${s.day} / ${s.maxDays}</div>
+        <div class="eyebrow">Day ${s.day} / ${s.maxDays}${profile.name ? ` · ${escapeHtml(profile.name)}` : ''}</div>
         <h1>Pawfect Shelter</h1>
         <div style="opacity:.8;font-weight:700">${phaseLabel[s.phase] ?? s.phase}</div>
+        ${flash ? `<div class="save-flash">${escapeHtml(flash)}</div>` : ''}
       </div>
       <div class="meters">
         <div class="meter">🏠 ${s.pets.length}/${effectiveCapacity(s)}</div>
@@ -109,6 +171,7 @@ function renderHud(s: RunState): string {
         <div class="meter">💛 ${s.reputation}</div>
         <div class="meter">🪙 ${s.gold}</div>
         <div class="meter">✅ ${s.adoptions}</div>
+        <button class="meter meter-btn" id="save-now" type="button">💾 Save</button>
       </div>
     </div>
   `;
@@ -117,11 +180,14 @@ function renderHud(s: RunState): string {
 function renderLog(s: RunState): string {
   if (!s.log.length) return '';
   return `
-    <ul class="log">
-      ${s.log
-        .map((l) => `<li class="${l.tone ?? 'neutral'}">${escapeHtml(l.text)}</li>`)
-        .join('')}
-    </ul>
+    <section class="log-panel" aria-label="Activity log">
+      <div class="log-heading">Activity log</div>
+      <ul class="log">
+        ${s.log
+          .map((l) => `<li class="${l.tone ?? 'neutral'}">${escapeHtml(l.text)}</li>`)
+          .join('')}
+      </ul>
+    </section>
   `;
 }
 
@@ -361,6 +427,8 @@ function renderSummary(s: RunState): string {
 }
 
 function bindPhase(s: RunState): void {
+  document.getElementById('save-now')?.addEventListener('click', () => saveCheckpoint());
+
   if (s.phase === 'intake') {
     app.querySelectorAll<HTMLButtonElement>('[data-accept]').forEach((btn) => {
       btn.addEventListener('click', () => acceptIntake(btn.dataset.accept!));

@@ -154,7 +154,7 @@ export function makeDayEvent(state: RunState): DayEvent | null {
   return pick(rng, pool);
 }
 
-function donationEvent(): DayEvent {
+export function donationEvent(): DayEvent {
   return {
     id: 'donation',
     title: 'Donation Drive',
@@ -182,7 +182,7 @@ function donationEvent(): DayEvent {
   };
 }
 
-function illnessEvent(): DayEvent {
+export function illnessEvent(): DayEvent {
   return {
     id: 'illness',
     title: 'Mystery Sniffles',
@@ -215,7 +215,7 @@ function illnessEvent(): DayEvent {
   };
 }
 
-function viralEvent(): DayEvent {
+export function viralEvent(): DayEvent {
   return {
     id: 'viral',
     title: 'Viral Shelter Post',
@@ -243,7 +243,7 @@ function viralEvent(): DayEvent {
   };
 }
 
-function volunteerEvent(): DayEvent {
+export function volunteerEvent(): DayEvent {
   return {
     id: 'volunteer',
     title: 'Weekend Volunteers',
@@ -274,7 +274,7 @@ function volunteerEvent(): DayEvent {
   };
 }
 
-function inspectionEvent(): DayEvent {
+export function inspectionEvent(): DayEvent {
   return {
     id: 'inspection',
     title: 'City Inspection',
@@ -297,6 +297,24 @@ function inspectionEvent(): DayEvent {
       },
     ],
   };
+}
+
+/** Rebuild a pending event after load (functions can't live in JSON). */
+export function eventById(id: string): DayEvent | null {
+  switch (id) {
+    case 'donation':
+      return donationEvent();
+    case 'illness':
+      return illnessEvent();
+    case 'viral':
+      return viralEvent();
+    case 'volunteer':
+      return volunteerEvent();
+    case 'inspection':
+      return inspectionEvent();
+    default:
+      return null;
+  }
 }
 
 export function clampRep(n: number): number {
