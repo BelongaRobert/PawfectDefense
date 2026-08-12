@@ -12,7 +12,15 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints. Start a season from the title screen.
+Open the local URL Vite prints (works on desktop or phone on the same Wi‑Fi if you use `--host`).
+
+### On iPhone / iPad (Safari)
+This is a mobile-friendly web app — no App Store install needed.
+
+Once GitHub Pages is on, open:
+**https://belongarobert.github.io/PawfectDefense/**
+
+(Add to Home Screen from the Share sheet for a full-screen icon.)
 
 ### Goal
 Survive **10 days** with **≥ 6 adoptions** and **≥ 40 reputation**.
