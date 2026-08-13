@@ -13,10 +13,11 @@ import type {
   Species,
 } from './types';
 import { SPECIES_EMOJI } from './types';
+import { STARTER_SPECIES } from './progression';
 
-const SPECIES: Species[] = ['dog', 'cat', 'rabbit', 'bird'];
 const SIZES: Size[] = ['S', 'M', 'L'];
 const ENERGIES: Energy[] = ['calm', 'moderate', 'high'];
+const SMALLISH: Species[] = ['bird', 'rabbit', 'hamster', 'ferret'];
 
 function randomTraits(rng: () => number): PetTraits {
   return {
@@ -28,19 +29,29 @@ function randomTraits(rng: () => number): PetTraits {
   };
 }
 
-export function createRun(seed = Date.now() % 1e9): RunState {
+export interface MetaBonuses {
+  species: Species[];
+  supplies: number;
+  capacity: number;
+  reputation: number;
+  maxEnergy: number;
+}
+
+export function createRun(seed = Date.now() % 1e9, meta?: Partial<MetaBonuses>): RunState {
+  const species = meta?.species?.length ? meta.species : [...STARTER_SPECIES];
   const rng = mulberry32(seed);
-  const starter = generatePet(rng, true);
+  const starter = generatePet(rng, true, species);
   starter.stress = 0;
+  const maxEnergy = 3 + (meta?.maxEnergy || 0);
   return {
     day: 1,
     maxDays: 10,
     phase: 'title',
-    capacity: 4,
-    supplies: 8,
-    energy: 3,
-    maxEnergy: 3,
-    reputation: 55,
+    capacity: 4 + (meta?.capacity || 0),
+    supplies: 8 + (meta?.supplies || 0),
+    energy: maxEnergy,
+    maxEnergy,
+    reputation: 55 + (meta?.reputation || 0),
     gold: 20,
     adoptions: 0,
     returns: 0,
@@ -59,12 +70,15 @@ export function createRun(seed = Date.now() % 1e9): RunState {
     seasonRecorded: false,
     statsBankedAdoptions: 0,
     statsBankedReturns: 0,
+    metaSpecies: species,
+    xpAwarded: 0,
   };
 }
 
-export function generatePet(rng: () => number, gentle = false): Pet {
-  const species = pick(rng, SPECIES);
-  const size = species === 'bird' || species === 'rabbit' ? pick(rng, ['S', 'M'] as Size[]) : pick(rng, SIZES);
+export function generatePet(rng: () => number, gentle = false, speciesPool: Species[] = STARTER_SPECIES): Pet {
+  const pool = speciesPool.length ? speciesPool : STARTER_SPECIES;
+  const species = pick(rng, pool);
+  const size = SMALLISH.includes(species) ? pick(rng, ['S', 'M'] as Size[]) : pick(rng, SIZES);
   const energy = gentle ? pick(rng, ['calm', 'moderate'] as Energy[]) : pick(rng, ENERGIES);
   const traits = randomTraits(rng);
   if (gentle) {
@@ -85,7 +99,12 @@ export function generatePet(rng: () => number, gentle = false): Pet {
   };
 }
 
-export function generateAdopter(rng: () => number, harder: boolean): Adopter {
+export function generateAdopter(
+  rng: () => number,
+  harder: boolean,
+  speciesPool: Species[] = STARTER_SPECIES,
+): Adopter {
+  const pool = speciesPool.length ? speciesPool : STARTER_SPECIES;
   const keys = traitKeys();
   const shuffle = [...keys].sort(() => rng() - 0.5);
   const mustCount = harder ? 2 : chance(rng, 0.5) ? 1 : 0;
@@ -111,7 +130,7 @@ export function generateAdopter(rng: () => number, harder: boolean): Adopter {
     emoji: pick(rng, ['🧑', '👩', '👨', '🧓', '🧔']),
     patience: harder ? 0 : chance(rng, 0.4) ? 1 : 0,
     prefs: {
-      species: chance(rng, 0.75) ? pick(rng, SPECIES) : undefined,
+      species: chance(rng, 0.75) ? pick(rng, pool) : undefined,
       size: chance(rng, 0.55) ? pick(rng, SIZES) : undefined,
       energy: chance(rng, 0.5) ? pick(rng, ENERGIES) : undefined,
       home,
@@ -128,7 +147,8 @@ export function generateIntake(state: RunState): Pet[] {
   if (state.endless) {
     count = chance(rng, 0.45) ? 3 : 2;
   }
-  return Array.from({ length: count }, () => generatePet(rng, state.day === 1));
+  const pool = state.metaSpecies?.length ? state.metaSpecies : STARTER_SPECIES;
+  return Array.from({ length: count }, () => generatePet(rng, state.day === 1, pool));
 }
 
 export function generateAdopters(state: RunState): Adopter[] {
@@ -136,7 +156,8 @@ export function generateAdopters(state: RunState): Adopter[] {
   const harder = state.day >= 6 || state.viralBoost || state.endless;
   const base = state.day <= 3 ? 2 : 3;
   const extra = (state.viralBoost ? 1 : 0) + (state.endless && state.day >= 15 ? 1 : 0);
-  return Array.from({ length: base + extra }, () => generateAdopter(rng, harder));
+  const pool = state.metaSpecies?.length ? state.metaSpecies : STARTER_SPECIES;
+  return Array.from({ length: base + extra }, () => generateAdopter(rng, harder, pool));
 }
 
 export function availableRelics(state: RunState): Relic[] {

@@ -9,7 +9,9 @@ import {
 } from './generators';
 import { scoreMatch } from './match';
 import { mulberry32, pick } from './rng';
+import { hasUnlock, unlockedSpecies } from './progression';
 import {
+  applyRunXp,
   clearRun,
   loadProfile,
   loadRun,
@@ -88,9 +90,16 @@ export function startRun(): void {
   if (!profile.name.trim()) {
     profile = setProfileName('Shelter Manager');
   }
+  profile = loadProfile();
   profile = recordSeasonStart(profile);
   clearRun();
-  state = createRun();
+  state = createRun(Date.now() % 1e9, {
+    species: unlockedSpecies(profile.unlocks),
+    supplies: hasUnlock(profile.unlocks, 'start_supplies') ? 3 : 0,
+    capacity: hasUnlock(profile.unlocks, 'start_kennel') ? 1 : 0,
+    reputation: hasUnlock(profile.unlocks, 'start_reputation') ? 5 : 0,
+    maxEnergy: hasUnlock(profile.unlocks, 'start_energy') ? 1 : 0,
+  });
   beginDay();
   emit({ flash: 'New season — progress will auto-save' });
 }
@@ -437,8 +446,13 @@ function goToVictory(): void {
     profile = recordSeasonEnd(profile, state);
     state.seasonRecorded = true;
   }
-  log('Congratulations — the season is won. Endless Mode is unlocked.', 'good');
-  emit({ flash: 'Season win saved to your profile' });
+  const reward = applyRunXp(profile, state);
+  profile = reward.profile;
+  const unlockMsg = reward.newUnlocks.length
+    ? ` Unlocked: ${reward.newUnlocks.map((u) => u.name).join(', ')}.`
+    : '';
+  log(`Congratulations — season won. +${reward.granted} Shelter XP.${unlockMsg}`, 'good');
+  emit({ flash: `+${reward.granted} XP · Level ${profile.level}` });
 }
 
 /** Keep playing past Day 10 with rising pressure. */
@@ -468,9 +482,14 @@ export function retireEndless(): void {
   state.won = true;
   state.endReason = `Retired on Day ${state.day} in Endless Mode with ${state.adoptions} adoptions.`;
   profile = bankEndlessProgress(profile, state);
+  const reward = applyRunXp(profile, state);
+  profile = reward.profile;
   state.phase = 'ended';
   clearRun();
-  emit({ persist: false, flash: 'Endless run saved to your profile' });
+  emit({
+    persist: false,
+    flash: reward.granted ? `+${reward.granted} XP · Level ${profile.level}` : 'Endless run saved',
+  });
 }
 
 function endRun(won: boolean, reason: string): void {
@@ -483,8 +502,15 @@ function endRun(won: boolean, reason: string): void {
     profile = recordSeasonEnd(profile, state);
     state.seasonRecorded = true;
   }
+  const reward = applyRunXp(profile, state);
+  profile = reward.profile;
   clearRun();
-  emit({ persist: false, flash: 'Season recorded to your profile' });
+  emit({
+    persist: false,
+    flash: reward.granted
+      ? `+${reward.granted} XP · Level ${profile.level}`
+      : 'Season recorded to your profile',
+  });
 }
 
 export function saveCheckpoint(): void {

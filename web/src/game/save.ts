@@ -1,5 +1,14 @@
+import {
+  estimateLegacyXp,
+  grantXp,
+  levelFromXp,
+  unlocksForLevel,
+  type UnlockDef,
+  type XpBreakdown,
+  computeRunXp,
+} from './progression';
 import { eventById } from './generators';
-import type { DayEvent, RunState } from './types';
+import type { DayEvent, RunState, Species } from './types';
 
 const PROFILE_KEY = 'pawfect.profile.v1';
 const RUN_KEY = 'pawfect.run.v1';
@@ -9,6 +18,15 @@ export interface UserProfile {
   name: string;
   createdAt: number;
   updatedAt: number;
+  xp: number;
+  level: number;
+  unlocks: string[];
+  /** UI flash after a run — cleared when read. */
+  lastReward?: {
+    xp: number;
+    parts: { label: string; amount: number }[];
+    newUnlocks: UnlockDef[];
+  };
   stats: {
     seasonsStarted: number;
     seasonsWon: number;
@@ -49,6 +67,8 @@ interface SerializableRun {
   seasonRecorded: boolean;
   statsBankedAdoptions: number;
   statsBankedReturns: number;
+  metaSpecies: Species[];
+  xpAwarded: number;
   pendingEventId: string | null;
 }
 
@@ -64,6 +84,9 @@ export function defaultProfile(): UserProfile {
     name: '',
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    xp: 0,
+    level: 1,
+    unlocks: [],
     stats: {
       seasonsStarted: 0,
       seasonsWon: 0,
@@ -77,17 +100,36 @@ export function defaultProfile(): UserProfile {
   };
 }
 
+function normalizeProfile(parsed: Partial<UserProfile>): UserProfile {
+  const base = defaultProfile();
+  const profile: UserProfile = {
+    ...base,
+    ...parsed,
+    stats: { ...base.stats, ...(parsed.stats || {}) },
+    unlocks: [...(parsed.unlocks || [])],
+    xp: parsed.xp ?? 0,
+    level: parsed.level ?? 1,
+  };
+
+  // Catch-up for saves from before leveling existed
+  if (parsed.xp == null && (profile.stats.seasonsStarted > 0 || profile.stats.totalAdoptions > 0)) {
+    profile.xp = estimateLegacyXp(profile.stats);
+  }
+
+  profile.level = levelFromXp(profile.xp);
+  for (const u of unlocksForLevel(profile.level)) {
+    if (!profile.unlocks.includes(u.id)) profile.unlocks.push(u.id);
+  }
+  return profile;
+}
+
 export function loadProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (!raw) return defaultProfile();
-    const parsed = JSON.parse(raw) as UserProfile;
+    const parsed = JSON.parse(raw) as Partial<UserProfile>;
     if (parsed?.version !== 1) return defaultProfile();
-    return {
-      ...defaultProfile(),
-      ...parsed,
-      stats: { ...defaultProfile().stats, ...parsed.stats },
-    };
+    return normalizeProfile(parsed);
   } catch {
     return defaultProfile();
   }
@@ -95,6 +137,7 @@ export function loadProfile(): UserProfile {
 
 export function saveProfile(profile: UserProfile): void {
   profile.updatedAt = Date.now();
+  profile.level = levelFromXp(profile.xp || 0);
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 }
 
@@ -107,6 +150,39 @@ export function setProfileName(name: string): UserProfile {
 
 export function recordSeasonStart(profile: UserProfile): UserProfile {
   profile.stats.seasonsStarted += 1;
+  saveProfile(profile);
+  return profile;
+}
+
+export function applyRunXp(
+  profile: UserProfile,
+  run: RunState,
+): { profile: UserProfile; breakdown: XpBreakdown; granted: number; newUnlocks: UnlockDef[] } {
+  const breakdown = computeRunXp({
+    won: !!run.won,
+    adoptions: run.adoptions,
+    day: run.day,
+    maxDays: run.maxDays,
+    endless: !!run.endless,
+    reputation: run.reputation,
+  });
+  const already = run.xpAwarded || 0;
+  const granted = Math.max(0, breakdown.total - already);
+  const newUnlocks = granted > 0 ? grantXp(profile, granted) : [];
+  run.xpAwarded = breakdown.total;
+  if (granted > 0 || newUnlocks.length) {
+    profile.lastReward = {
+      xp: granted,
+      parts: breakdown.parts,
+      newUnlocks,
+    };
+  }
+  saveProfile(profile);
+  return { profile, breakdown, granted, newUnlocks };
+}
+
+export function clearLastReward(profile: UserProfile): UserProfile {
+  delete profile.lastReward;
   saveProfile(profile);
   return profile;
 }
@@ -126,6 +202,7 @@ export function recordSeasonEnd(profile: UserProfile, run: RunState): UserProfil
   if (run.endless || run.day > run.maxDays) {
     profile.stats.endlessBestDay = Math.max(profile.stats.endlessBestDay, run.day);
   }
+  // XP is awarded once at final end / victory — victory awards XP; endless banks later
   saveProfile(profile);
   return profile;
 }
@@ -184,6 +261,8 @@ export function saveRun(run: RunState): void {
       seasonRecorded: !!run.seasonRecorded,
       statsBankedAdoptions: run.statsBankedAdoptions || 0,
       statsBankedReturns: run.statsBankedReturns || 0,
+      metaSpecies: run.metaSpecies?.length ? run.metaSpecies : ['dog', 'cat'],
+      xpAwarded: run.xpAwarded || 0,
       pendingEventId: run.pendingEvent?.id ?? null,
     },
   };
@@ -211,6 +290,8 @@ export function loadRun(): RunState | null {
       seasonRecorded: !!rest.seasonRecorded,
       statsBankedAdoptions: rest.statsBankedAdoptions || 0,
       statsBankedReturns: rest.statsBankedReturns || 0,
+      metaSpecies: rest.metaSpecies?.length ? rest.metaSpecies : ['dog', 'cat'],
+      xpAwarded: rest.xpAwarded || 0,
       phase,
       pendingEvent,
     };

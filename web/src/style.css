@@ -460,6 +460,58 @@ h3 {
   color: transparent;
 }
 
+.xp-bar {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(231, 244, 238, 0.18);
+  overflow: hidden;
+  margin: 0.55rem 0 0.65rem;
+}
+
+.xp-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #e8a54b, #ffe6b0);
+}
+
+.unlock-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.65rem;
+}
+
+.unlock-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  width: 100%;
+}
+
+.tag.locked {
+  opacity: 0.55;
+  background: rgba(20, 48, 41, 0.08);
+}
+
+.reward-card {
+  max-width: 28rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(247, 252, 249, 0.16);
+  border: 1px solid rgba(232, 165, 75, 0.45);
+  color: var(--foam);
+}
+
+.reward-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: #ffe6b0;
+  margin-bottom: 0.4rem;
+}
+
 .match-row {
   display: grid;
   gap: 0.55rem;

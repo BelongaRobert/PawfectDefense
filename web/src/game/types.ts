@@ -1,4 +1,4 @@
-export type Species = 'dog' | 'cat' | 'rabbit' | 'bird';
+export type Species = 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'ferret';
 export type Size = 'S' | 'M' | 'L';
 export type Energy = 'calm' | 'moderate' | 'high';
 export type HomeType = 'apartment' | 'house' | 'farm';
@@ -115,6 +115,10 @@ export interface RunState {
   /** Adoptions/returns already banked into the profile (for endless deltas). */
   statsBankedAdoptions: number;
   statsBankedReturns: number;
+  /** Species unlocked for this run (frozen at season start). */
+  metaSpecies: Species[];
+  /** Shelter XP already granted this run (victory may award before endless). */
+  xpAwarded: number;
 }
 
 export const TRAIT_LABELS: Record<keyof PetTraits, string> = {
@@ -130,4 +134,15 @@ export const SPECIES_EMOJI: Record<Species, string> = {
   cat: '🐈',
   rabbit: '🐇',
   bird: '🦜',
+  hamster: '🐹',
+  ferret: '🦡',
+};
+
+export const SPECIES_LABELS: Record<Species, string> = {
+  dog: 'dog',
+  cat: 'cat',
+  rabbit: 'rabbit',
+  bird: 'bird',
+  hamster: 'hamster',
+  ferret: 'ferret',
 };

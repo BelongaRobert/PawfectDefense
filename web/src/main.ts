@@ -32,6 +32,7 @@ import {
 import { continueSummary, hasContinue } from './game/save';
 import { TRAIT_LABELS, type Adopter, type Pet, type RunState } from './game/types';
 import { effectiveCapacity } from './game/generators';
+import { STARTER_SPECIES, UNLOCKS, unlockedSpecies, xpToNextLevel } from './game/progression';
 
 void initNativeShell();
 
@@ -73,6 +74,10 @@ function renderTitle(): string {
   const profile = getProfile();
   const cont = continueSummary();
   const stats = profile.stats;
+  const xp = xpToNextLevel(profile.xp || 0);
+  const pct = Math.min(100, Math.round((xp.into / xp.need) * 100));
+  const species = unlockedSpecies(profile.unlocks);
+  const locked = UNLOCKS.filter((u) => !(profile.unlocks || []).includes(u.id));
   return `
     <section class="title-screen shell">
       <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Roguelike shelter sim</div>
@@ -85,19 +90,40 @@ function renderTitle(): string {
           value="${escapeHtml(profile.name)}" autocomplete="nickname" />
       </label>
 
-      ${
-        profile.name || stats.seasonsStarted
-          ? `<div class="profile-card">
-              <div class="profile-card-title">${escapeHtml(profile.name || 'New manager')}</div>
-              <div class="profile-stats">
-                <span>${stats.seasonsWon} wins</span>
-                <span>${stats.totalAdoptions} adoptions</span>
-                <span>Best rep ${stats.bestReputation}</span>
-                ${stats.endlessBestDay ? `<span>Endless Day ${stats.endlessBestDay}</span>` : ''}
-              </div>
-            </div>`
-          : ''
-      }
+      <div class="profile-card">
+        <div class="profile-card-title">${escapeHtml(profile.name || 'New manager')} · Lv ${profile.level || 1}</div>
+        <div class="xp-bar" aria-label="Shelter XP">
+          <span style="width:${pct}%"></span>
+        </div>
+        <div class="profile-stats">
+          <span>${profile.xp || 0} XP</span>
+          <span>${xp.into}/${xp.need} to next</span>
+          <span>${stats.seasonsWon} wins</span>
+          <span>${stats.totalAdoptions} adoptions</span>
+          ${stats.endlessBestDay ? `<span>Endless Day ${stats.endlessBestDay}</span>` : ''}
+        </div>
+        <div class="unlock-row">
+          <span class="unlock-label">Species</span>
+          ${[...STARTER_SPECIES, ...UNLOCKS.filter((u) => u.kind === 'species').map((u) => u.species!)]
+            .filter((v, i, a) => a.indexOf(v) === i)
+            .map((sp) => {
+              const open = species.includes(sp);
+              return `<span class="tag ${open ? 'good' : 'locked'}">${open ? '✓' : '🔒'} ${sp}</span>`;
+            })
+            .join('')}
+        </div>
+        ${
+          locked.length
+            ? `<div class="unlock-row">
+                <span class="unlock-label">Next unlocks</span>
+                ${locked
+                  .slice(0, 3)
+                  .map((u) => `<span class="tag">Lv ${u.level} ${u.emoji} ${escapeHtml(u.name)}</span>`)
+                  .join('')}
+              </div>`
+            : ''
+        }
+      </div>
 
       ${
         cont
@@ -133,6 +159,26 @@ function bindTitle(): void {
   });
 }
 
+function renderRewardBlock(): string {
+  const reward = getProfile().lastReward;
+  if (!reward) return '';
+  return `
+    <div class="reward-card">
+      <div class="reward-title">+${reward.xp} Shelter XP</div>
+      <div class="profile-stats">
+        ${reward.parts.map((p) => `<span>${escapeHtml(p.label)} +${p.amount}</span>`).join('')}
+      </div>
+      ${
+        reward.newUnlocks.length
+          ? `<div class="unlock-row">${reward.newUnlocks
+              .map((u) => `<span class="tag good">${u.emoji} Unlocked ${escapeHtml(u.name)}</span>`)
+              .join('')}</div>`
+          : ''
+      }
+    </div>
+  `;
+}
+
 function renderVictory(s: RunState): string {
   const profile = getProfile();
   return `
@@ -140,8 +186,9 @@ function renderVictory(s: RunState): string {
       <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Season cleared</div>
       <h1>Congratulations!</h1>
       <p>You kept the shelter standing for ${s.maxDays} days — ${s.adoptions} pets found homes with reputation ${s.reputation}.</p>
+      ${renderRewardBlock()}
       <p>Want to keep going? Endless Mode raises the pressure: busier intake, pickier adopters, and inspections that never quit.</p>
-      <p class="ended-profile">${escapeHtml(profile.name || 'Manager')} · career wins ${profile.stats.seasonsWon}${profile.stats.endlessBestDay ? ` · endless best Day ${profile.stats.endlessBestDay}` : ''}</p>
+      <p class="ended-profile">${escapeHtml(profile.name || 'Manager')} · Lv ${profile.level} · ${profile.xp} XP</p>
       <div class="row-actions">
         <button class="btn" id="endless">Endless Mode</button>
         <button class="btn secondary" id="finish-season">Finish season</button>
@@ -162,7 +209,8 @@ function renderEnded(s: RunState): string {
       <h1>${s.won ? 'Homes found.' : 'Season closed.'}</h1>
       <p>${escapeHtml(s.endReason ?? '')}</p>
       <p>Adoptions ${s.adoptions} · Returns ${s.returns} · Gold ${s.gold} · Rep ${s.reputation}${s.endless || s.day > s.maxDays ? ` · Day ${s.day}` : ''}</p>
-      <p class="ended-profile">Saved to ${escapeHtml(profile.name || 'your profile')} · ${profile.stats.seasonsWon} career wins · ${profile.stats.totalAdoptions} career adoptions${profile.stats.endlessBestDay ? ` · endless best Day ${profile.stats.endlessBestDay}` : ''}</p>
+      ${renderRewardBlock()}
+      <p class="ended-profile">${escapeHtml(profile.name || 'Manager')} · Lv ${profile.level} · ${profile.xp} XP · ${profile.stats.seasonsWon} wins</p>
       <div class="row-actions">
         <button class="btn" id="again">Run again</button>
         <button class="btn secondary" id="to-title">Profile</button>
