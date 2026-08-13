@@ -5,6 +5,8 @@ import {
   acceptIntake,
   advanceDay,
   assignMatch,
+  buySupplies,
+  restockCost,
   bootToTitle,
   chooseEvent,
   clearMatch,
@@ -245,7 +247,7 @@ function renderHud(s: RunState): string {
       </div>
       <div class="meters">
         <div class="meter">🏠 ${s.pets.length}/${effectiveCapacity(s)}</div>
-        <div class="meter">🥫 ${s.supplies}</div>
+        <div class="meter">🥫 ${s.supplies} food</div>
         <div class="meter">⚡ ${s.energy}</div>
         <div class="meter">💛 ${s.reputation}</div>
         <div class="meter">🪙 ${s.gold}</div>
@@ -308,7 +310,11 @@ function petCard(pet: Pet, body: string): string {
         <div class="tag">Day ${pet.daysHeld}</div>
       </div>
       <div class="stress" title="Stress ${pet.stress}/3"><span style="width:${stressPct}%"></span></div>
-      <div class="tags">${traits || '<span class="tag">No special traits</span>'}</div>
+      <div class="tags">
+        ${!pet.fedToday ? '<span class="tag warn">Hungry</span>' : '<span class="tag good">Fed</span>'}
+        ${pet.treatBoost ? '<span class="tag good">Treat boost</span>' : ''}
+        ${traits || ''}
+      </div>
       ${body}
     </article>
   `;
@@ -369,7 +375,7 @@ function renderCare(s: RunState): string {
       <header>
         <div>
           <h2>Care shift</h2>
-          <p>Spend staff energy to lower stress and prep pets for better matches. Energy left: <strong>${s.energy}</strong></p>
+          <p>Feed stops overnight hunger and helps matches. Treats wow adopters (better grade + extra gold). Energy left: <strong>${s.energy}</strong> · Food: <strong>${s.supplies}</strong></p>
         </div>
       </header>
       <div class="grid pets">${cards || '<p>No pets to care for.</p>'}</div>
@@ -382,7 +388,7 @@ function renderCare(s: RunState): string {
 
 function renderAdoption(s: RunState): string {
   const petOptions = s.pets
-    .map((p) => `<option value="${p.id}">${p.emoji} ${p.name} (${p.species}, stress ${p.stress})</option>`)
+    .map((p) => `<option value="${p.id}">${p.emoji} ${p.name} (${p.species}${p.fedToday ? '' : ', hungry'}${p.treatBoost ? ', treat' : ''}, stress ${p.stress})</option>`)
     .join('');
 
   const cards = s.adopters
@@ -497,6 +503,7 @@ function renderSummary(s: RunState): string {
     : s.day >= s.maxDays
       ? 'See results'
       : 'Next day';
+  const cost = restockCost();
   return `
     <section class="panel">
       <header>
@@ -506,7 +513,9 @@ function renderSummary(s: RunState): string {
         </div>
       </header>
       <div class="tags">${relics}</div>
+      <p style="color:var(--muted);margin:0.85rem 0 0;font-weight:700">Stockroom — ${s.supplies} food · ${s.gold} gold. Unfed pets get hungrier overnight.</p>
       <div class="row-actions">
+        <button class="btn ghost" id="buy-food" ${s.gold < cost ? 'disabled' : ''}>Buy 3 food (${cost}🪙)</button>
         <button class="btn" id="next-day">${nextLabel}</button>
         ${s.endless ? '<button class="btn ghost" id="retire-endless">Retire shelter</button>' : ''}
       </div>
@@ -564,6 +573,7 @@ function bindPhase(s: RunState): void {
   }
 
   if (s.phase === 'summary') {
+    document.getElementById('buy-food')?.addEventListener('click', () => buySupplies());
     document.getElementById('next-day')?.addEventListener('click', () => advanceDay());
     document.getElementById('retire-endless')?.addEventListener('click', () => {
       if (confirm('Retire from Endless Mode and bank this run?')) retireEndless();

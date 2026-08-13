@@ -1,4 +1,4 @@
-export type Species = 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'ferret';
+export type Species = 'dog' | 'cat' | 'rabbit' | 'bird' | 'chameleon' | 'hamster' | 'ferret';
 export type Size = 'S' | 'M' | 'L';
 export type Energy = 'calm' | 'moderate' | 'high';
 export type HomeType = 'apartment' | 'house' | 'farm';
@@ -33,6 +33,10 @@ export interface Pet {
   stress: Stress;
   daysHeld: number;
   emoji: string;
+  /** Fed during today's care shift — skips overnight hunger stress. */
+  fedToday: boolean;
+  /** Treat this visit — adopters score the pet higher and pay a bit more. */
+  treatBoost: boolean;
 }
 
 export interface AdopterPrefs {
@@ -119,6 +123,8 @@ export interface RunState {
   metaSpecies: Species[];
   /** Shelter XP already granted this run (victory may award before endless). */
   xpAwarded: number;
+  /** Extra supplies delivered each morning (meta unlock). */
+  morningSupplies: number;
 }
 
 export const TRAIT_LABELS: Record<keyof PetTraits, string> = {
@@ -134,6 +140,7 @@ export const SPECIES_EMOJI: Record<Species, string> = {
   cat: '🐈',
   rabbit: '🐇',
   bird: '🦜',
+  chameleon: '🦎',
   hamster: '🐹',
   ferret: '🦡',
 };
@@ -143,6 +150,7 @@ export const SPECIES_LABELS: Record<Species, string> = {
   cat: 'cat',
   rabbit: 'rabbit',
   bird: 'bird',
+  chameleon: 'chameleon',
   hamster: 'hamster',
   ferret: 'ferret',
 };

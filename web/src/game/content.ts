@@ -61,4 +61,34 @@ export const RELIC_POOL: Relic[] = [
     description: 'Stretch matches never return.',
     emoji: '📱',
   },
+  {
+    id: 'pantry_run',
+    name: 'Pantry Run',
+    description: '+2 food delivered each morning.',
+    emoji: '📦',
+  },
+  {
+    id: 'gourmet',
+    name: 'Gourmet Kibble',
+    description: 'Fed pets score much better with adopters.',
+    emoji: '🍽️',
+  },
+  {
+    id: 'bulk_buyer',
+    name: 'Wholesale Card',
+    description: 'Restocking food at day-end costs 4 gold instead of 6.',
+    emoji: '🧾',
+  },
+  {
+    id: 'night_snack',
+    name: 'Night Snack Stash',
+    description: 'Unfed pets skip hunger stress half the time.',
+    emoji: '🌙',
+  },
+  {
+    id: 'adoption_camera',
+    name: 'Adoption Camera',
+    description: 'Perfect matches grant +3 extra reputation.',
+    emoji: '📷',
+  },
 ];

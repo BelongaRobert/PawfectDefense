@@ -15,7 +15,7 @@ function homeOk(pet: Pet, home: Adopter['prefs']['home']): boolean {
   return !(pet.traits.needsYard && home === 'apartment');
 }
 
-export function scoreMatch(pet: Pet, adopter: Adopter): MatchBreakdown {
+export function scoreMatch(pet: Pet, adopter: Adopter, relics: string[] = []): MatchBreakdown {
   const notes: string[] = [];
   let score = 50;
   const { prefs } = adopter;
@@ -76,6 +76,24 @@ export function scoreMatch(pet: Pet, adopter: Adopter): MatchBreakdown {
   if (pet.stress >= 2) {
     score -= 10 * pet.stress;
     notes.push('Pet is stressed');
+  }
+
+  if (!pet.fedToday) {
+    score -= 16;
+    notes.push('Hungry');
+  } else {
+    score += 6;
+    notes.push('Well-fed');
+  }
+
+  if (pet.treatBoost) {
+    score += 14;
+    notes.push('Treat-happy');
+  }
+
+  if (relics.includes('gourmet') && pet.fedToday) {
+    score += 10;
+    notes.push('Gourmet kibble');
   }
 
   if (pet.traits.trained) score += 4;

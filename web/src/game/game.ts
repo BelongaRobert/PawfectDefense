@@ -99,6 +99,8 @@ export function startRun(): void {
     capacity: hasUnlock(profile.unlocks, 'start_kennel') ? 1 : 0,
     reputation: hasUnlock(profile.unlocks, 'start_reputation') ? 5 : 0,
     maxEnergy: hasUnlock(profile.unlocks, 'start_energy') ? 1 : 0,
+    gold: hasUnlock(profile.unlocks, 'start_gold') ? 12 : 0,
+    morningSupplies: hasUnlock(profile.unlocks, 'morning_delivery') ? 1 : 0,
   });
   beginDay();
   emit({ flash: 'New season — progress will auto-save' });
@@ -121,6 +123,11 @@ export function abandonRun(): void {
 export function beginDay(): void {
   state.phase = 'intake';
   state.energy = state.maxEnergy + (hasRelic('treat_bowl') ? 1 : 0);
+  const morningFood = (state.morningSupplies || 0) + (hasRelic('pantry_run') ? 2 : 0);
+  if (morningFood > 0) {
+    state.supplies += morningFood;
+    log(`Morning delivery: +${morningFood} food.`, 'good');
+  }
   state.intake = generateIntake(state);
   state.adopters = [];
   state.pendingEvent = null;
@@ -162,7 +169,7 @@ export function finishIntake(): void {
     declineIntake(pet.id);
   }
   state.phase = 'care';
-  log('Care shift begins. Feed, play, train, or treat.', 'neutral');
+  log('Care shift begins. Feed to stop hunger, treats to wow adopters.', 'neutral');
   emit();
 }
 
@@ -180,18 +187,18 @@ export function doCare(petId: string, action: CareAction): void {
 
   if (action === 'feed') {
     if (state.supplies < 1) {
-      log('No supplies left to feed.', 'bad');
+      log('No food left. Restock with gold at the end of the day.', 'bad');
       emit();
       return;
     }
     state.supplies -= 1;
     state.energy -= 1;
+    pet.fedToday = true;
     setStress(pet, pet.stress - 1);
-    log(`Fed ${pet.name}.`, 'good');
+    log(`Fed ${pet.name}. They won't go hungry overnight.`, 'good');
   } else if (action === 'play') {
     state.energy -= 1;
     setStress(pet, pet.stress - 1);
-    if (pet.energy === 'high') setStress(pet, pet.stress - 0); // already -1
     log(`Played with ${pet.name}.`, 'good');
   } else if (action === 'train') {
     state.energy -= 1;
@@ -201,16 +208,18 @@ export function doCare(petId: string, action: CareAction): void {
   } else if (action === 'treat') {
     const free = hasRelic('vet_voucher') && !state.freeTreatUsed;
     if (!free && state.supplies < 2) {
-      log('Treat needs 2 supplies.', 'bad');
+      log('Treats need 2 food.', 'bad');
       emit();
       return;
     }
     if (free) state.freeTreatUsed = true;
     else state.supplies -= 2;
     state.energy -= 1;
+    pet.fedToday = true;
+    pet.treatBoost = true;
     setStress(pet, 0);
     pet.traits.specialNeeds = false;
-    log(`Treated ${pet.name} — looking bright.`, 'good');
+    log(`Treat for ${pet.name} — adopters will notice.`, 'good');
   }
   emit();
 }
@@ -237,7 +246,7 @@ export function assignMatch(adopterId: string, petId: string): void {
     }
   }
 
-  const { grade } = scoreMatch(pet, adopter);
+  const { grade } = scoreMatch(pet, adopter, state.relics.map((r) => r.id));
   adopter.matchedPetId = petId;
   adopter.result = grade;
   emit();
@@ -252,10 +261,12 @@ export function clearMatch(adopterId: string): void {
 }
 
 function applyAdoption(adopter: Adopter, pet: Pet, grade: MatchGrade): void {
-  const gold =
+  let gold =
     grade === 'perfect' ? 18 : grade === 'good' ? 12 : grade === 'stretch' ? 7 : 0;
-  const rep =
+  if (pet.treatBoost && grade !== 'bad') gold += 5;
+  let rep =
     grade === 'perfect' ? 8 : grade === 'good' ? 4 : grade === 'stretch' ? 1 : -8;
+  if (grade === 'perfect' && hasRelic('adoption_camera')) rep += 3;
 
   if (grade === 'bad') {
     state.reputation = clampRep(state.reputation + rep);
@@ -315,17 +326,25 @@ function resolveEvening(): void {
   state.viralBoost = false;
   state.freeTreatUsed = false;
 
-  // Overnight stress
   const soft = hasRelic('soft_blankets');
+  const snack = hasRelic('night_snack');
   const rng = mulberry32(state.seed + state.day * 77 + 5);
   for (const pet of state.pets) {
     pet.daysHeld += 1;
     let bump = 0;
+    if (!pet.fedToday) {
+      if (!(snack && rng() < 0.5)) {
+        bump += 1;
+        log(`${pet.name} went to bed hungry.`, 'bad');
+      }
+    }
     if (pet.daysHeld >= 3) bump += 1;
     if (pet.traits.specialNeeds) bump += 1;
-    if (state.pets.length > state.capacity) bump += 1; // over foster into real capacity pressure
+    if (state.pets.length > state.capacity) bump += 1;
     if (soft && bump > 0 && rng() < 0.25) bump -= 1;
     if (bump > 0) setStress(pet, pet.stress + bump);
+    pet.fedToday = false;
+    pet.treatBoost = false;
   }
 
   // Collapse check
@@ -410,6 +429,25 @@ function applyRelic(relic: Relic): void {
   if (relic.id === 'foster_network') state.fosterSlots += 1;
   if (relic.id === 'welcome_sign') state.reputation = clampRep(state.reputation + 5);
   log(`Relic acquired: ${relic.name}`, 'good');
+}
+
+export function restockCost(): number {
+  return hasRelic('bulk_buyer') ? 4 : 6;
+}
+
+/** Spend gold for 3 food at the end of the day. */
+export function buySupplies(): void {
+  if (state.phase !== 'summary') return;
+  const cost = restockCost();
+  if (state.gold < cost) {
+    log(`Need ${cost} gold to restock food.`, 'bad');
+    emit();
+    return;
+  }
+  state.gold -= cost;
+  state.supplies += 3;
+  log(`Bought 3 food for ${cost} gold.`, 'good');
+  emit({ flash: 'Pantry restocked' });
 }
 
 function goSummary(): void {
@@ -524,5 +562,5 @@ export function previewMatch(adopterId: string, petId: string) {
   const adopter = state.adopters.find((a) => a.id === adopterId);
   const pet = state.pets.find((p) => p.id === petId);
   if (!adopter || !pet) return null;
-  return scoreMatch(pet, adopter);
+  return scoreMatch(pet, adopter, state.relics.map((r) => r.id));
 }

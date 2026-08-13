@@ -69,6 +69,7 @@ interface SerializableRun {
   statsBankedReturns: number;
   metaSpecies: Species[];
   xpAwarded: number;
+  morningSupplies: number;
   pendingEventId: string | null;
 }
 
@@ -263,6 +264,7 @@ export function saveRun(run: RunState): void {
       statsBankedReturns: run.statsBankedReturns || 0,
       metaSpecies: run.metaSpecies?.length ? run.metaSpecies : ['dog', 'cat'],
       xpAwarded: run.xpAwarded || 0,
+      morningSupplies: run.morningSupplies || 0,
       pendingEventId: run.pendingEvent?.id ?? null,
     },
   };
@@ -284,6 +286,11 @@ export function loadRun(): RunState | null {
         phase = 'summary';
       }
     }
+    const normalizePet = (p: RunState['pets'][number]) => ({
+      ...p,
+      fedToday: !!p.fedToday,
+      treatBoost: !!p.treatBoost,
+    });
     return {
       ...rest,
       endless: !!rest.endless,
@@ -292,6 +299,9 @@ export function loadRun(): RunState | null {
       statsBankedReturns: rest.statsBankedReturns || 0,
       metaSpecies: rest.metaSpecies?.length ? rest.metaSpecies : ['dog', 'cat'],
       xpAwarded: rest.xpAwarded || 0,
+      morningSupplies: rest.morningSupplies || 0,
+      pets: (rest.pets || []).map(normalizePet),
+      intake: (rest.intake || []).map(normalizePet),
       phase,
       pendingEvent,
     };

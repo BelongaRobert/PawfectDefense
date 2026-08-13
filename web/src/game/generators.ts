@@ -17,7 +17,7 @@ import { STARTER_SPECIES } from './progression';
 
 const SIZES: Size[] = ['S', 'M', 'L'];
 const ENERGIES: Energy[] = ['calm', 'moderate', 'high'];
-const SMALLISH: Species[] = ['bird', 'rabbit', 'hamster', 'ferret'];
+const SMALLISH: Species[] = ['bird', 'rabbit', 'hamster', 'ferret', 'chameleon'];
 
 function randomTraits(rng: () => number): PetTraits {
   return {
@@ -35,6 +35,8 @@ export interface MetaBonuses {
   capacity: number;
   reputation: number;
   maxEnergy: number;
+  gold: number;
+  morningSupplies: number;
 }
 
 export function createRun(seed = Date.now() % 1e9, meta?: Partial<MetaBonuses>): RunState {
@@ -52,7 +54,7 @@ export function createRun(seed = Date.now() % 1e9, meta?: Partial<MetaBonuses>):
     energy: maxEnergy,
     maxEnergy,
     reputation: 55 + (meta?.reputation || 0),
-    gold: 20,
+    gold: 20 + (meta?.gold || 0),
     adoptions: 0,
     returns: 0,
     pets: [starter],
@@ -72,6 +74,7 @@ export function createRun(seed = Date.now() % 1e9, meta?: Partial<MetaBonuses>):
     statsBankedReturns: 0,
     metaSpecies: species,
     xpAwarded: 0,
+    morningSupplies: meta?.morningSupplies || 0,
   };
 }
 
@@ -96,6 +99,8 @@ export function generatePet(rng: () => number, gentle = false, speciesPool: Spec
     stress: chance(rng, 0.2) ? 1 : 0,
     daysHeld: 0,
     emoji: SPECIES_EMOJI[species],
+    fedToday: gentle,
+    treatBoost: false,
   };
 }
 

@@ -3,12 +3,15 @@ import type { Species } from './types';
 export type UnlockId =
   | 'species_rabbit'
   | 'species_bird'
+  | 'species_chameleon'
   | 'species_hamster'
   | 'species_ferret'
   | 'start_supplies'
   | 'start_kennel'
   | 'start_reputation'
-  | 'start_energy';
+  | 'start_energy'
+  | 'start_gold'
+  | 'morning_delivery';
 
 export interface UnlockDef {
   id: UnlockId;
@@ -59,8 +62,25 @@ export const UNLOCKS: UnlockDef[] = [
     kind: 'bonus',
   },
   {
-    id: 'species_hamster',
+    id: 'species_chameleon',
     level: 4,
+    name: 'Chameleons',
+    description: 'Chameleons can arrive at intake.',
+    emoji: '🦎',
+    kind: 'species',
+    species: 'chameleon',
+  },
+  {
+    id: 'start_gold',
+    level: 4,
+    name: 'Community Jar',
+    description: 'Start each season with +12 gold.',
+    emoji: '🪙',
+    kind: 'bonus',
+  },
+  {
+    id: 'species_hamster',
+    level: 5,
     name: 'Hamsters',
     description: 'Hamsters can arrive at intake.',
     emoji: '🐹',
@@ -69,7 +89,7 @@ export const UNLOCKS: UnlockDef[] = [
   },
   {
     id: 'start_kennel',
-    level: 5,
+    level: 6,
     name: 'Extra Kennel Permit',
     description: 'Start each season with +1 kennel capacity.',
     emoji: '🏠',
@@ -77,7 +97,7 @@ export const UNLOCKS: UnlockDef[] = [
   },
   {
     id: 'species_ferret',
-    level: 6,
+    level: 7,
     name: 'Ferrets',
     description: 'Ferrets can arrive at intake.',
     emoji: '🦡',
@@ -86,10 +106,18 @@ export const UNLOCKS: UnlockDef[] = [
   },
   {
     id: 'start_energy',
-    level: 7,
+    level: 8,
     name: 'Volunteer Roster',
     description: 'Start each season with +1 max staff energy.',
     emoji: '⚡',
+    kind: 'bonus',
+  },
+  {
+    id: 'morning_delivery',
+    level: 9,
+    name: 'Morning Delivery',
+    description: '+1 food delivered each morning of a season.',
+    emoji: '📦',
     kind: 'bonus',
   },
 ];
