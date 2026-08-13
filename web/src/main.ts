@@ -27,6 +27,7 @@ import {
   getSignedInUsername,
   getState,
   hasBackupPassword,
+  isLoggedIn,
   loginShelterAccount,
   logoutShelterAccount,
   pickRelic,
@@ -92,7 +93,8 @@ function render(): void {
 
 function renderTitle(): string {
   const profile = getProfile();
-  const cont = continueSummary();
+  const signedIn = isLoggedIn();
+  const cont = signedIn ? continueSummary() : null;
   const stats = profile.stats;
   const xp = xpToNextLevel(profile.xp || 0);
   const pct = Math.min(100, Math.round((xp.into / xp.need) * 100));
@@ -101,20 +103,9 @@ function renderTitle(): string {
   const user = getSignedInUsername();
   const notice = getAccountNotice();
   const onDevice = deviceUsernames();
-  return `
-    <section class="title-screen shell">
-      <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Roguelike shelter sim</div>
-      <h1>Pawfect Shelter</h1>
-      <p>Take in animals under tight kennels, keep them calm, and match each one to the right home before the season ends. Pocket pets share a habitat — ferrets, hamsters, and chameleons don't each take a whole kennel.</p>
-
-      <label class="profile-field">
-        <span>Shelter name</span>
-        <input id="player-name" type="text" maxlength="24" placeholder="Shelter manager"
-          value="${escapeHtml(profile.name)}" autocomplete="nickname" />
-      </label>
-
-      <div class="profile-card">
-        <div class="profile-card-title">${escapeHtml(profile.name || user || 'New manager')} · Lv ${profile.level || 1}${user ? ` · @${escapeHtml(user)}` : ''}</div>
+  const careerCard = signedIn
+    ? `<div class="profile-card">
+        <div class="profile-card-title">${escapeHtml(profile.name || user || 'Manager')} · Lv ${profile.level || 1} · @${escapeHtml(user || '')}</div>
         <div class="xp-bar" aria-label="Shelter XP">
           <span style="width:${pct}%"></span>
         </div>
@@ -147,11 +138,41 @@ function renderTitle(): string {
               </div>`
             : ''
         }
-      </div>
+      </div>`
+    : `<div class="profile-card">
+        <div class="profile-card-title">Guest visit</div>
+        <p class="account-copy">Play now if you like. Refresh, close, or log out and this visit is wiped. Sign in to keep XP, levels, and Continue.</p>
+      </div>`;
+
+  return `
+    <section class="title-screen shell">
+      <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Roguelike shelter sim</div>
+      <h1>Pawfect Shelter</h1>
+      <p>Take in animals under tight kennels, keep them calm, and match each one to the right home before the season ends. Pocket pets share a habitat — ferrets, hamsters, and chameleons don't each take a whole kennel.</p>
+
+      ${
+        signedIn
+          ? `<label class="profile-field">
+              <span>Shelter name</span>
+              <input id="player-name" type="text" maxlength="24" placeholder="Shelter manager"
+                value="${escapeHtml(profile.name)}" autocomplete="nickname" />
+            </label>`
+          : `<label class="profile-field">
+              <span>Name for this visit (optional)</span>
+              <input id="player-name" type="text" maxlength="24" placeholder="Guest"
+                value="${escapeHtml(profile.name)}" autocomplete="nickname" />
+            </label>`
+      }
+
+      ${careerCard}
 
       <div class="account-card">
         <div class="profile-card-title">Account</div>
-        <p class="account-copy">XP, levels, and unlocks live on this device. Create a username and password (no email) if you want a restore code for another phone. There is no password reset.</p>
+        <p class="account-copy">${
+          signedIn
+            ? 'Your XP, levels, and Continue save live on this device. Copy a restore code for another phone. There is no password reset.'
+            : 'Create a username and password (no email) to keep your career. Guests cannot Continue after leaving.'
+        }</p>
         ${notice ? `<div class="account-notice">${escapeHtml(notice)}</div>` : ''}
         ${
           user
@@ -357,7 +378,7 @@ function renderHud(s: RunState): string {
         <div class="meter">💛 ${s.reputation}</div>
         <div class="meter">🪙 ${s.gold}</div>
         <div class="meter">✅ ${s.adoptions}</div>
-        <button class="meter meter-btn" id="save-now" type="button">💾 Save</button>
+        ${isLoggedIn() ? '<button class="meter meter-btn" id="save-now" type="button">💾 Save</button>' : '<div class="meter">Guest</div>'}
       </div>
     </div>
   `;

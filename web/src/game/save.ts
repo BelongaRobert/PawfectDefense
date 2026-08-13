@@ -32,9 +32,20 @@ function runKey(): string {
   return user ? `${RUN_KEY}.${user}` : RUN_KEY;
 }
 
+export function isLoggedIn(): boolean {
+  return !!getSessionUsername();
+}
+
+/** Old guest saves lived in localStorage. Guests are visit-only now. */
+export function purgeLegacyGuestSaves(): void {
+  localStorage.removeItem(PROFILE_KEY);
+  localStorage.removeItem(RUN_KEY);
+}
+
 function syncVault(profile: UserProfile): void {
+  if (!isLoggedIn()) return;
   const password = getSessionPassword();
-  if (!password || !getSessionUsername()) return;
+  if (!password) return;
   const runJson = localStorage.getItem(runKey());
   void persistAccount(profile, runJson, password);
 }
@@ -151,6 +162,7 @@ function normalizeProfile(parsed: Partial<UserProfile>): UserProfile {
 }
 
 export function loadProfile(): UserProfile {
+  if (!isLoggedIn()) return defaultProfile();
   try {
     const raw = localStorage.getItem(profileKey());
     if (!raw) return defaultProfile();
@@ -165,12 +177,12 @@ export function loadProfile(): UserProfile {
 export function saveProfile(profile: UserProfile): void {
   profile.updatedAt = Date.now();
   profile.level = levelFromXp(profile.xp || 0);
+  if (!isLoggedIn()) return;
   localStorage.setItem(profileKey(), JSON.stringify(profile));
   syncVault(profile);
 }
 
-export function setProfileName(name: string): UserProfile {
-  const profile = loadProfile();
+export function setProfileName(profile: UserProfile, name: string): UserProfile {
   profile.name = name.trim().slice(0, 24);
   saveProfile(profile);
   return profile;
@@ -254,10 +266,16 @@ export function bankEndlessProgress(profile: UserProfile, run: RunState): UserPr
 }
 
 export function saveRun(run: RunState): void {
+  if (!isLoggedIn()) return;
   if (run.phase === 'title' || run.phase === 'ended') {
     clearRun();
     return;
   }
+  localStorage.setItem(runKey(), serializeRun(run));
+  syncVault(loadProfile());
+}
+
+export function serializeRun(run: RunState): string {
   const payload: SavedRun = {
     version: 1,
     savedAt: Date.now(),
@@ -295,11 +313,11 @@ export function saveRun(run: RunState): void {
       pendingEventId: run.pendingEvent?.id ?? null,
     },
   };
-  localStorage.setItem(runKey(), JSON.stringify(payload));
-  syncVault(loadProfile());
+  return JSON.stringify(payload);
 }
 
 export function loadRun(): RunState | null {
+  if (!isLoggedIn()) return null;
   try {
     const raw = localStorage.getItem(runKey());
     if (!raw) return null;
@@ -339,6 +357,7 @@ export function loadRun(): RunState | null {
 }
 
 export function clearRun(): void {
+  if (!isLoggedIn()) return;
   localStorage.removeItem(runKey());
   syncVault(loadProfile());
 }
@@ -354,19 +373,20 @@ export function applyAccountPayload(profileRaw: unknown, runJson: string | null)
 export async function registerAccount(
   username: string,
   password: string,
+  liveProfile: UserProfile,
+  liveRun: RunState | null,
 ): Promise<{ ok: true; username: string } | { ok: false; error: string }> {
-  const profile = loadProfile();
-  const guestRun = localStorage.getItem(RUN_KEY);
-  const result = await createAccount(username, password, profile, guestRun);
+  const profile = normalizeProfile(liveProfile);
+  const runJson =
+    liveRun && liveRun.phase !== 'title' && liveRun.phase !== 'ended' ? serializeRun(liveRun) : null;
+  const result = await createAccount(username, password, profile, runJson);
   if (!result.ok) return result;
   localStorage.setItem(profileKey(), JSON.stringify(profile));
-  if (guestRun) localStorage.setItem(runKey(), guestRun);
+  if (runJson) localStorage.setItem(runKey(), runJson);
   if (!profile.name.trim()) {
     profile.name = result.username;
-    saveProfile(profile);
-  } else {
-    syncVault(profile);
   }
+  saveProfile(profile);
   return result;
 }
 
@@ -404,12 +424,16 @@ export async function unlockAccountBackup(
 }
 
 export function hasContinue(): boolean {
+  if (!isLoggedIn()) return false;
   const run = loadRun();
   return !!run && run.phase !== 'title' && run.phase !== 'ended';
 }
 
 export function continueSummary(): { day: number; reputation: number; adoptions: number } | null {
+  if (!isLoggedIn()) return null;
   const run = loadRun();
   if (!run || run.phase === 'title' || run.phase === 'ended') return null;
   return { day: run.day, reputation: run.reputation, adoptions: run.adoptions };
 }
+
+purgeLegacyGuestSaves();

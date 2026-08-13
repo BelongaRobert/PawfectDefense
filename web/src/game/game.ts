@@ -12,6 +12,8 @@ import { hasUnlock, unlockedSpecies } from './progression';
 import {
   applyRunXp,
   clearRun,
+  defaultProfile,
+  isLoggedIn,
   loadProfile,
   loadRun,
   recordSeasonEnd,
@@ -69,6 +71,8 @@ export function getSignedInUsername(): string | null {
   return getSessionUsername();
 }
 
+export { isLoggedIn };
+
 export function hasBackupPassword(): boolean {
   return !!getSessionPassword();
 }
@@ -84,7 +88,7 @@ export function subscribe(fn: Listener): () => void {
 
 function emit(opts?: { persist?: boolean; flash?: string }): void {
   if (opts?.flash) saveFlash = opts.flash;
-  if (opts?.persist !== false && state.phase !== 'title') {
+  if (opts?.persist !== false && state.phase !== 'title' && isLoggedIn()) {
     if (state.phase === 'ended') clearRun();
     else {
       saveRun(state);
@@ -108,25 +112,26 @@ function setStress(pet: Pet, value: number): void {
 
 /** Boot title screen; does not auto-resume a run. */
 export function bootToTitle(): void {
-  profile = loadProfile();
+  if (isLoggedIn()) profile = loadProfile();
   state = { ...createRun(), phase: 'title', pets: [], log: [] };
   saveFlash = '';
   emit({ persist: false });
 }
 
 export function updatePlayerName(name: string): void {
-  profile = setProfileName(name);
+  profile = setProfileName(profile, name);
 }
 
 export async function createShelterAccount(username: string, password: string): Promise<boolean> {
-  const result = await registerAccount(username, password);
+  const liveRun = state.phase !== 'title' && state.phase !== 'ended' ? state : null;
+  const result = await registerAccount(username, password, profile, liveRun);
   if (!result.ok) {
     accountNotice = result.error;
     emit({ persist: false });
     return false;
   }
   profile = loadProfile();
-  accountNotice = `Signed in as ${result.username}. Copy a restore code to move XP to another device. Forgotten passwords cannot be reset.`;
+  accountNotice = `Signed in as ${result.username}. This save now persists. Copy a restore code for another device. Forgotten passwords cannot be reset.`;
   emit({ persist: false, flash: 'Account saved on this device' });
   return true;
 }
@@ -146,8 +151,9 @@ export async function loginShelterAccount(username: string, password: string): P
 
 export function logoutShelterAccount(): void {
   logout();
-  profile = loadProfile();
-  accountNotice = 'Signed out. Guest progress on this device is separate.';
+  profile = defaultProfile();
+  state = { ...createRun(), phase: 'title', pets: [], log: [] };
+  accountNotice = 'Signed out. Guest seasons are not saved after you leave.';
   emit({ persist: false });
 }
 
@@ -189,11 +195,10 @@ export function copyRestoreCode(): string | null {
 
 export function startRun(): void {
   if (!profile.name.trim()) {
-    profile = setProfileName('Shelter Manager');
+    profile = setProfileName(profile, isLoggedIn() ? 'Shelter Manager' : 'Guest');
   }
-  profile = loadProfile();
   profile = recordSeasonStart(profile);
-  clearRun();
+  if (isLoggedIn()) clearRun();
   state = createRun(Date.now() % 1e9, {
     species: unlockedSpecies(profile.unlocks),
     supplies: hasUnlock(profile.unlocks, 'start_supplies') ? 3 : 0,
@@ -204,10 +209,13 @@ export function startRun(): void {
     morningSupplies: hasUnlock(profile.unlocks, 'morning_delivery') ? 1 : 0,
   });
   beginDay();
-  emit({ flash: 'New season — progress will auto-save' });
+  emit({
+    flash: isLoggedIn() ? 'New season — progress will auto-save' : 'Guest season — leave the page and it is gone',
+  });
 }
 
 export function continueRun(): boolean {
+  if (!isLoggedIn()) return false;
   const saved = loadRun();
   if (!saved) return false;
   state = saved;
@@ -625,7 +633,7 @@ export function enterEndlessMode(): void {
   state.gold += 10;
   state.day += 1;
   beginDay();
-  emit({ flash: 'Endless Mode — progress still auto-saves' });
+  emit({ flash: isLoggedIn() ? 'Endless Mode — progress still auto-saves' : 'Endless Mode — still a guest visit' });
 }
 
 /** Leave the congratulations screen without endless. */
@@ -633,7 +641,10 @@ export function finishAfterVictory(): void {
   if (state.phase !== 'victory') return;
   state.phase = 'ended';
   clearRun();
-  emit({ persist: false, flash: 'Season recorded to your profile' });
+  emit({
+    persist: false,
+    flash: isLoggedIn() ? 'Season recorded to your profile' : 'Guest season ended — sign in next time to keep XP',
+  });
 }
 
 /** Retire during endless from the day summary. */
@@ -669,12 +680,18 @@ function endRun(won: boolean, reason: string): void {
     persist: false,
     flash: reward.granted
       ? `+${reward.granted} XP · Level ${profile.level}`
-      : 'Season recorded to your profile',
+      : isLoggedIn()
+        ? 'Season recorded to your profile'
+        : 'Guest season ended — sign in next time to keep XP',
   });
 }
 
 export function saveCheckpoint(): void {
   if (state.phase === 'title' || state.phase === 'ended') return;
+  if (!isLoggedIn()) {
+    emit({ persist: false, flash: 'Sign in to save. Guest seasons vanish when you leave.' });
+    return;
+  }
   saveRun(state);
   saveProfile(profile);
   emit({ persist: false, flash: 'Checkpoint saved' });

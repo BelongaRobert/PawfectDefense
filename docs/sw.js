@@ -1,6 +1,13 @@
 /* Pawfect Shelter — offline shell for Home Screen / PWA installs */
-const CACHE = 'pawfect-shelter-v1';
-const ASSETS = ['./', './index.html', './manifest.webmanifest'];
+const CACHE = 'pawfect-shelter-v3';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
