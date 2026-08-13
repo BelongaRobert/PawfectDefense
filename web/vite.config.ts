@@ -3,7 +3,8 @@ import { defineConfig } from 'vite';
 /**
  * Base path:
  * - `/` for local, Capacitor, tunnels
- * - `/PawfectDefense/` when building for GitHub Pages (`VITE_BASE=...`)
+ * - `./` for GitHub Pages (`npm run build:pages`) so the game works at
+ *   https://belongarobert.github.io/PawfectDefense/ when Pages publishes `/docs`
  */
 export default defineConfig({
   base: process.env.VITE_BASE || '/',

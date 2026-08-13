@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:pages": "VITE_BASE=/PawfectDefense/docs/ npm run build",
+    "build:pages": "VITE_BASE=./ npm run build",
     "preview": "vite preview",
     "build:app": "npm run build && npx cap sync",
     "open:ios": "npx cap open ios",

@@ -2,7 +2,9 @@
 
 Roguelike pet-adoption shelter sim. Take in animals, manage kennels/supplies/staff energy, and match pets to the right adopters.
 
-**Play:** [https://belongarobert.github.io/PawfectDefense/docs/](https://belongarobert.github.io/PawfectDefense/docs/)
+**Play:** [https://belongarobert.github.io/PawfectDefense/](https://belongarobert.github.io/PawfectDefense/)
+
+> GitHub Pages must publish the **`/docs` folder** on `main` (Settings → Pages → Deploy from a branch → `main` / `/docs`). That folder is only the source; it does not appear in the URL. Do not pick `/ (root)` — that is what put `/docs/` on the end of the address.
 
 > The old Unity combat deck-builder remains under `Assets/` as legacy. The playable game is in `web/` (source) and `docs/` (GitHub Pages build).
 
