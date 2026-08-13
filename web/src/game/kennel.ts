@@ -70,7 +70,7 @@ export function habitatTag(pets: Pet[], species: Species): string | null {
   const n = colonyCount(pets, species);
   if (n <= 0) return null;
   const inOpen = ((n - 1) % COLONY_PER_KENNEL) + 1;
-  return `${inOpen}/${COLONY_PER_KENNEL} ${species} habitat`;
+  return `${inOpen}/${COLONY_PER_KENNEL} ${species}`;
 }
 
 export function kennelLabel(pets: Pet[], capacity: number): string {

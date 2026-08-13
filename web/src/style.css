@@ -109,24 +109,75 @@ h3 {
   min-height: calc(100vh - 3rem);
   display: grid;
   align-content: center;
-  gap: 1.25rem;
+  gap: 0.9rem;
   color: var(--foam);
   text-align: left;
-  max-width: 34rem;
+  max-width: 26rem;
 }
 
 .title-screen h1 {
-  font-size: clamp(3rem, 9vw, 5rem);
-  line-height: 0.95;
+  font-size: clamp(3.2rem, 12vw, 4.6rem);
+  line-height: 0.92;
   text-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  margin: 0;
 }
 
-.title-screen p {
+.title-screen .tagline {
   margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: rgba(231, 244, 238, 0.82);
+  font-weight: 700;
+  max-width: 22ch;
+}
+
+.play-row {
+  margin-top: 0.35rem;
+}
+
+.play-btn {
   font-size: 1.15rem;
-  line-height: 1.5;
-  color: rgba(231, 244, 238, 0.88);
-  max-width: 32ch;
+  padding: 1rem 1.8rem;
+  min-width: 10rem;
+}
+
+.profile-card.compact {
+  padding: 0.7rem 0.85rem;
+}
+
+.continue-line {
+  font-weight: 800;
+}
+
+.account-drawer {
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.75rem 0.75rem;
+  border-radius: 1rem;
+  background: rgba(247, 252, 249, 0.1);
+  border: 1px solid rgba(231, 244, 238, 0.18);
+  color: var(--foam);
+}
+
+.account-drawer summary {
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.account-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-drawer[open] summary {
+  margin-bottom: 0.55rem;
+  opacity: 0.85;
+}
+
+.account-drawer .profile-field {
+  margin-top: 0.45rem;
 }
 
 .btn {

@@ -53,7 +53,7 @@ import {
   isColonySpecies,
   kennelLabel,
 } from './game/kennel';
-import { STARTER_SPECIES, UNLOCKS, unlockedSpecies, xpToNextLevel } from './game/progression';
+import { UNLOCKS, unlockedSpecies, xpToNextLevel } from './game/progression';
 
 void initNativeShell();
 
@@ -99,142 +99,103 @@ function renderTitle(): string {
   const xp = xpToNextLevel(profile.xp || 0);
   const pct = Math.min(100, Math.round((xp.into / xp.need) * 100));
   const species = unlockedSpecies(profile.unlocks);
-  const locked = UNLOCKS.filter((u) => !(profile.unlocks || []).includes(u.id));
+  const nextUnlock = UNLOCKS.find((u) => !(profile.unlocks || []).includes(u.id));
   const user = getSignedInUsername();
   const notice = getAccountNotice();
   const onDevice = deviceUsernames();
-  const careerCard = signedIn
-    ? `<div class="profile-card">
-        <div class="profile-card-title">${escapeHtml(profile.name || user || 'Manager')} · Lv ${profile.level || 1} · @${escapeHtml(user || '')}</div>
-        <div class="xp-bar" aria-label="Shelter XP">
-          <span style="width:${pct}%"></span>
-        </div>
-        <div class="profile-stats">
-          <span>${profile.xp || 0} XP</span>
-          <span>${xp.into}/${xp.need} to next</span>
-          <span>${stats.seasonsWon} wins</span>
-          <span>${stats.totalAdoptions} adoptions</span>
-          ${stats.endlessBestDay ? `<span>Endless Day ${stats.endlessBestDay}</span>` : ''}
-        </div>
-        <div class="unlock-row">
-          <span class="unlock-label">Species</span>
-          ${[...STARTER_SPECIES, ...UNLOCKS.filter((u) => u.kind === 'species').map((u) => u.species!)]
-            .filter((v, i, a) => a.indexOf(v) === i)
-            .map((sp) => {
-              const open = species.includes(sp);
-              const colony = isColonySpecies(sp);
-              return `<span class="tag ${open ? 'good' : 'locked'}">${open ? '✓' : '🔒'} ${sp}${colony ? ' · habitat' : ''}</span>`;
-            })
-            .join('')}
-        </div>
-        ${
-          locked.length
-            ? `<div class="unlock-row">
-                <span class="unlock-label">Next unlocks</span>
-                ${locked
-                  .slice(0, 3)
-                  .map((u) => `<span class="tag">Lv ${u.level} ${u.emoji} ${escapeHtml(u.name)}</span>`)
-                  .join('')}
-              </div>`
-            : ''
-        }
-      </div>`
-    : `<div class="profile-card">
-        <div class="profile-card-title">Guest visit</div>
-        <p class="account-copy">Play now if you like. Refresh, close, or log out and this visit is wiped. Sign in to keep XP, levels, and Continue.</p>
-      </div>`;
+  const showAccount = !signedIn || !!notice;
 
   return `
     <section class="title-screen shell">
-      <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Roguelike shelter sim</div>
       <h1>Pawfect Shelter</h1>
-      <p>Take in animals under tight kennels, keep them calm, and match each one to the right home before the season ends. Pocket pets share a habitat — ferrets, hamsters, and chameleons don't each take a whole kennel.</p>
+      <p class="tagline">Match pets. Fill kennels. Survive 10 days.</p>
 
       ${
         signedIn
-          ? `<label class="profile-field">
-              <span>Shelter name</span>
-              <input id="player-name" type="text" maxlength="24" placeholder="Shelter manager"
-                value="${escapeHtml(profile.name)}" autocomplete="nickname" />
-            </label>`
-          : `<label class="profile-field">
-              <span>Name for this visit (optional)</span>
-              <input id="player-name" type="text" maxlength="24" placeholder="Guest"
-                value="${escapeHtml(profile.name)}" autocomplete="nickname" />
-            </label>`
-      }
-
-      ${careerCard}
-
-      <div class="account-card">
-        <div class="profile-card-title">Account</div>
-        <p class="account-copy">${
-          signedIn
-            ? 'Your XP, levels, and Continue save live on this device. Copy a restore code for another phone. There is no password reset.'
-            : 'Create a username and password (no email) to keep your career. Guests cannot Continue after leaving.'
-        }</p>
-        ${notice ? `<div class="account-notice">${escapeHtml(notice)}</div>` : ''}
-        ${
-          user
-            ? `<div class="profile-stats"><span>Signed in as @${escapeHtml(user)}</span></div>
-               ${
-                 hasBackupPassword()
-                   ? ''
-                   : `<label class="profile-field">
-                        <span>Password (to refresh the backup)</span>
-                        <input id="unlock-pass" type="password" autocomplete="current-password" />
-                      </label>
-                      <div class="row-actions" style="margin-top:.5rem">
-                        <button class="btn small secondary" id="unlock-backup" type="button">Unlock backup</button>
-                      </div>`
-               }
-               <div class="row-actions" style="margin-top:.55rem">
-                 <button class="btn small" id="copy-restore" type="button">Copy restore code</button>
-                 <button class="btn small secondary" id="logout" type="button">Log out</button>
-               </div>
-               <textarea id="restore-out" class="restore-box" readonly hidden></textarea>`
-            : `<label class="profile-field">
-                 <span>Username</span>
-                 <input id="acct-user" type="text" maxlength="20" autocomplete="username" placeholder="at least 3 letters" />
-               </label>
-               <label class="profile-field">
-                 <span>Password</span>
-                 <input id="acct-pass" type="password" autocomplete="new-password" placeholder="at least 4 characters" />
-               </label>
-               <div class="row-actions" style="margin-top:.55rem">
-                 <button class="btn small" id="acct-create" type="button">Create account</button>
-                 <button class="btn small secondary" id="acct-login" type="button">Log in</button>
-               </div>
-               ${onDevice.length ? `<p class="account-copy">On this device: ${onDevice.map((n) => `@${escapeHtml(n)}`).join(', ')}</p>` : ''}
-               <label class="profile-field" style="margin-top:.75rem">
-                 <span>Restore from another device</span>
-                 <textarea id="restore-in" class="restore-box" placeholder="Paste a PFS1. restore code"></textarea>
-               </label>
-               <label class="profile-field">
-                 <span>Password for that code</span>
-                 <input id="restore-pass" type="password" autocomplete="current-password" />
-               </label>
-               <div class="row-actions" style="margin-top:.45rem">
-                 <button class="btn small secondary" id="acct-restore" type="button">Restore save</button>
-               </div>`
-        }
-      </div>
-
-      ${
-        cont
-          ? `<div class="continue-card">
-              <div>Saved season — Day ${cont.day}, ${cont.adoptions} adoptions, ${cont.reputation} rep</div>
-              <div class="row-actions" style="margin-top:.65rem">
-                <button class="btn" id="continue">Continue</button>
-                <button class="btn secondary" id="abandon">Abandon save</button>
+          ? `<div class="profile-card compact">
+              <div class="profile-card-title">Lv ${profile.level || 1} · @${escapeHtml(user || '')}</div>
+              <div class="xp-bar" aria-label="Shelter XP"><span style="width:${pct}%"></span></div>
+              <div class="profile-stats">
+                <span>${stats.seasonsWon} wins</span>
+                <span>${stats.totalAdoptions} homes</span>
+                ${nextUnlock ? `<span>Next: Lv ${nextUnlock.level} ${nextUnlock.emoji}</span>` : ''}
+              </div>
+              <div class="unlock-row">
+                ${species.map((sp) => `<span class="tag good">${sp}</span>`).join('')}
               </div>
             </div>`
           : ''
       }
 
-      <div class="row-actions">
-        <button class="btn" id="start">${cont ? 'New season' : 'Start a season'}</button>
+      ${
+        cont
+          ? `<div class="continue-card">
+              <div class="continue-line">Day ${cont.day} · ${cont.adoptions} homes · ${cont.reputation} rep</div>
+              <div class="row-actions" style="margin-top:.55rem">
+                <button class="btn" id="continue">Continue</button>
+                <button class="btn secondary" id="abandon">Quit save</button>
+              </div>
+            </div>`
+          : ''
+      }
+
+      <div class="row-actions play-row">
+        <button class="btn play-btn" id="start">${cont ? 'New run' : 'Play'}</button>
       </div>
+
+      <details class="account-drawer" ${showAccount ? 'open' : ''}>
+        <summary>${signedIn ? `Account · @${escapeHtml(user || '')}` : 'Save progress'}</summary>
+        ${notice ? `<div class="account-notice">${escapeHtml(notice)}</div>` : ''}
+        ${
+          signedIn
+            ? `<label class="profile-field">
+                 <span>Shelter name</span>
+                 <input id="player-name" type="text" maxlength="24" placeholder="Manager"
+                   value="${escapeHtml(profile.name)}" autocomplete="nickname" />
+               </label>
+               ${
+                 hasBackupPassword()
+                   ? ''
+                   : `<label class="profile-field">
+                        <span>Password</span>
+                        <input id="unlock-pass" type="password" autocomplete="current-password" />
+                      </label>
+                      <div class="row-actions" style="margin-top:.45rem">
+                        <button class="btn small secondary" id="unlock-backup" type="button">Unlock backup</button>
+                      </div>`
+               }
+               <div class="row-actions" style="margin-top:.55rem">
+                 <button class="btn small" id="copy-restore" type="button">Copy code</button>
+                 <button class="btn small secondary" id="logout" type="button">Log out</button>
+               </div>
+               <textarea id="restore-out" class="restore-box" readonly hidden></textarea>`
+            : `<label class="profile-field">
+                 <span>Username</span>
+                 <input id="acct-user" type="text" maxlength="20" autocomplete="username" />
+               </label>
+               <label class="profile-field">
+                 <span>Password</span>
+                 <input id="acct-pass" type="password" autocomplete="new-password" />
+               </label>
+               <div class="row-actions" style="margin-top:.55rem">
+                 <button class="btn small" id="acct-create" type="button">Create</button>
+                 <button class="btn small secondary" id="acct-login" type="button">Log in</button>
+               </div>
+               ${onDevice.length ? `<div class="profile-stats" style="margin-top:.5rem">${onDevice.map((n) => `<span>@${escapeHtml(n)}</span>`).join('')}</div>` : ''}
+               <label class="profile-field" style="margin-top:.75rem">
+                 <span>Restore code</span>
+                 <textarea id="restore-in" class="restore-box" placeholder="PFS1...."></textarea>
+               </label>
+               <label class="profile-field">
+                 <span>Password</span>
+                 <input id="restore-pass" type="password" autocomplete="current-password" />
+               </label>
+               <div class="row-actions" style="margin-top:.45rem">
+                 <button class="btn small secondary" id="acct-restore" type="button">Restore</button>
+               </div>
+               <input id="player-name" type="hidden" value="${escapeHtml(profile.name)}" />`
+        }
+      </details>
     </section>
   `;
 }
@@ -244,19 +205,19 @@ function bindTitle(): void {
   nameInput?.addEventListener('change', () => updatePlayerName(nameInput.value));
   nameInput?.addEventListener('blur', () => updatePlayerName(nameInput.value));
   document.getElementById('start')?.addEventListener('click', () => {
-    if (nameInput) updatePlayerName(nameInput.value);
-    if (hasContinue() && !confirm('Start a new season? Your saved run will be replaced.')) return;
+    if (nameInput && nameInput.type !== 'hidden') updatePlayerName(nameInput.value);
+    if (hasContinue() && !confirm('Start a new run? This replaces your save.')) return;
     startRun();
   });
   document.getElementById('continue')?.addEventListener('click', () => continueRun());
   document.getElementById('abandon')?.addEventListener('click', () => {
-    if (confirm('Abandon the saved season?')) abandonRun();
+    if (confirm('Quit this save?')) abandonRun();
   });
 
   const userEl = document.getElementById('acct-user') as HTMLInputElement | null;
   const passEl = document.getElementById('acct-pass') as HTMLInputElement | null;
   document.getElementById('acct-create')?.addEventListener('click', () => {
-    if (nameInput) updatePlayerName(nameInput.value);
+    if (nameInput && nameInput.type !== 'hidden') updatePlayerName(nameInput.value);
     void createShelterAccount(userEl?.value || '', passEl?.value || '');
   });
   document.getElementById('acct-login')?.addEventListener('click', () => {
@@ -311,15 +272,13 @@ function renderVictory(s: RunState): string {
   const profile = getProfile();
   return `
     <section class="ended shell victory-screen">
-      <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Season cleared</div>
-      <h1>Congratulations!</h1>
-      <p>You kept the shelter standing for ${s.maxDays} days — ${s.adoptions} pets found homes with reputation ${s.reputation}.</p>
+      <h1>Season clear!</h1>
+      <p>${s.adoptions} homes · ${s.reputation} rep</p>
       ${renderRewardBlock()}
-      <p>Want to keep going? Endless Mode raises the pressure: busier intake, pickier adopters, and inspections that never quit.</p>
-      <p class="ended-profile">${escapeHtml(profile.name || 'Manager')} · Lv ${profile.level} · ${profile.xp} XP</p>
+      <p class="ended-profile">Lv ${profile.level} · ${profile.xp} XP</p>
       <div class="row-actions">
-        <button class="btn" id="endless">Endless Mode</button>
-        <button class="btn secondary" id="finish-season">Finish season</button>
+        <button class="btn" id="endless">Keep going</button>
+        <button class="btn secondary" id="finish-season">Done</button>
       </div>
     </section>
   `;
@@ -334,14 +293,14 @@ function renderEnded(s: RunState): string {
   const profile = getProfile();
   return `
     <section class="ended shell">
-      <h1>${s.won ? 'Homes found.' : 'Season closed.'}</h1>
+      <h1>${s.won ? 'Nice run.' : 'Run over.'}</h1>
       <p>${escapeHtml(s.endReason ?? '')}</p>
-      <p>Adoptions ${s.adoptions} · Returns ${s.returns} · Gold ${s.gold} · Rep ${s.reputation}${s.endless || s.day > s.maxDays ? ` · Day ${s.day}` : ''}</p>
+      <p>${s.adoptions} homes · ${s.returns} returns · ${s.reputation} rep${s.endless || s.day > s.maxDays ? ` · Day ${s.day}` : ''}</p>
       ${renderRewardBlock()}
-      <p class="ended-profile">${escapeHtml(profile.name || 'Manager')} · Lv ${profile.level} · ${profile.xp} XP · ${profile.stats.seasonsWon} wins</p>
+      <p class="ended-profile">Lv ${profile.level} · ${profile.xp} XP</p>
       <div class="row-actions">
-        <button class="btn" id="again">Run again</button>
-        <button class="btn secondary" id="to-title">Profile</button>
+        <button class="btn" id="again">Play again</button>
+        <button class="btn secondary" id="to-title">Menu</button>
       </div>
     </section>
   `;
@@ -356,12 +315,12 @@ function renderHud(s: RunState): string {
   const profile = getProfile();
   const flash = getSaveFlash();
   const phaseLabel: Record<string, string> = {
-    intake: 'Morning intake',
-    care: 'Care shift',
-    adoption: 'Adoption hours',
-    event: 'Shelter event',
-    relic: 'Upgrade offer',
-    summary: 'Day summary',
+    intake: 'Intake',
+    care: 'Care',
+    adoption: 'Match',
+    event: 'Event',
+    relic: 'Upgrade',
+    summary: 'Day end',
   };
   return `
     <div class="hud">
@@ -439,7 +398,7 @@ function petCard(pet: Pet, body: string): string {
       <div class="tags">
         ${!pet.fedToday ? '<span class="tag warn">Hungry</span>' : '<span class="tag good">Fed</span>'}
         ${pet.treatBoost ? '<span class="tag good">Treat boost</span>' : ''}
-        ${isColonySpecies(pet.species) ? '<span class="tag">Shares habitat</span>' : ''}
+        ${isColonySpecies(pet.species) ? '<span class="tag">Habitat</span>' : ''}
         ${traits || ''}
       </div>
       ${body}
@@ -454,42 +413,43 @@ function renderIntake(s: RunState): string {
           const lead = cluster[0]!;
           if (cluster.length === 1) {
             const extra = extraKennelsNeeded(s.pets, cluster);
-            const fit = extra === 0 && isColonySpecies(lead.species) ? 'Fits in the existing habitat.' : extra === 1 ? 'Uses 1 kennel.' : `Needs ${extra} kennels.`;
+            const fit =
+              extra === 0 && isColonySpecies(lead.species)
+                ? 'Fits habitat'
+                : extra === 1
+                  ? '1 kennel'
+                  : `${extra} kennels`;
             return petCard(
               lead,
               `<p class="card-note">${fit}</p>
               <div class="actions">
-                <button class="btn small" data-accept="${lead.id}">Accept</button>
-                <button class="btn small ghost" data-decline="${lead.id}">Turn away</button>
+                <button class="btn small" data-accept="${lead.id}">Take in</button>
+                <button class="btn small ghost" data-decline="${lead.id}">Pass</button>
               </div>`,
             );
           }
           const extra = extraKennelsNeeded(s.pets, cluster);
-          const kennelNote =
-            extra === 0
-              ? `Fits in the ${lead.species} habitat (up to ${COLONY_PER_KENNEL} per kennel).`
-              : `They share one kennel. Accepting uses ${extra} kennel${extra === 1 ? '' : 's'}.`;
+          const kennelNote = extra === 0 ? 'Fits habitat' : `${extra} kennel${extra === 1 ? '' : 's'}`;
           const names = cluster.map((p) => `${p.emoji} ${escapeHtml(p.name)}`).join(' · ');
           return `
             <article class="card colony-card">
               <div class="card-top">
                 <div>
                   <div class="emoji">${cluster.map((p) => p.emoji).join('')}</div>
-                  <h3>${lead.species} group of ${cluster.length}</h3>
-                  <div style="color:var(--muted);font-size:.9rem;font-weight:700">Bonded intake · shared habitat</div>
+                  <h3>${lead.species} ×${cluster.length}</h3>
                 </div>
-                <div class="tag good">${cluster.length}/${COLONY_PER_KENNEL} kennel</div>
+                <div class="tag good">${cluster.length}/${COLONY_PER_KENNEL}</div>
               </div>
               <p class="card-note">${kennelNote}</p>
               <div class="tags"><span class="tag">${names}</span></div>
               <div class="actions">
-                <button class="btn small" data-accept="${lead.id}">Accept group</button>
-                <button class="btn small ghost" data-decline="${lead.id}">Turn away group</button>
+                <button class="btn small" data-accept="${lead.id}">Take group</button>
+                <button class="btn small ghost" data-decline="${lead.id}">Pass</button>
               </div>
             </article>`;
         })
         .join('')
-    : `<p style="color:var(--muted);margin:0">No animals waiting — continue to care.</p>`;
+    : `<p style="color:var(--muted);margin:0">Empty queue</p>`;
 
   const housed = s.pets.map((p) => petCard(p, habitatTag(s.pets, p.species) ? `<p class="card-note">${habitatTag(s.pets, p.species)}</p>` : '')).join('');
 
@@ -497,15 +457,15 @@ function renderIntake(s: RunState): string {
     <section class="panel">
       <header>
         <div>
-          <h2>Who comes in?</h2>
-          <p>Dogs, cats, rabbits, and birds each need a kennel. Ferrets, hamsters, and chameleons share — 4 of the same species fill one kennel, and a group of 3–4 arriving together counts as that one kennel.</p>
+          <h2>Intake</h2>
+          <p>Take them in or pass. Small pets share habitats.</p>
         </div>
       </header>
       <div class="grid intake">${incoming}</div>
-      <h3 style="margin:1rem 0 .5rem">In the shelter</h3>
-      <div class="grid pets">${housed || '<p style="color:var(--muted)">Empty kennels</p>'}</div>
+      <h3 style="margin:1rem 0 .5rem">Kennels</h3>
+      <div class="grid pets">${housed || '<p style="color:var(--muted)">Empty</p>'}</div>
       <div class="row-actions">
-        <button class="btn" id="to-care">Start care shift</button>
+        <button class="btn" id="to-care">Care</button>
       </div>
     </section>
   `;
@@ -530,13 +490,13 @@ function renderCare(s: RunState): string {
     <section class="panel">
       <header>
         <div>
-          <h2>Care shift</h2>
-          <p>Feed stops overnight hunger and helps matches. Treats wow adopters (better grade + extra gold). Energy left: <strong>${s.energy}</strong> · Food: <strong>${s.supplies}</strong></p>
+          <h2>Care</h2>
+          <p>⚡ ${s.energy} · 🥫 ${s.supplies}</p>
         </div>
       </header>
-      <div class="grid pets">${cards || '<p>No pets to care for.</p>'}</div>
+      <div class="grid pets">${cards || '<p>No pets</p>'}</div>
       <div class="row-actions">
-        <button class="btn" id="to-adopt">Open adoption hours</button>
+        <button class="btn" id="to-adopt">Match</button>
       </div>
     </section>
   `;
@@ -579,13 +539,13 @@ function renderAdoption(s: RunState): string {
     <section class="panel">
       <header>
         <div>
-          <h2>Matchmaking</h2>
-          <p>Assign pets to visitors. Perfect/good placements pay off; stretch matches may return; bad matches refuse.</p>
+          <h2>Match</h2>
+          <p>Pick a pet for each visitor.</p>
         </div>
       </header>
       <div class="grid adopters">${cards}</div>
       <div class="row-actions">
-        <button class="btn" id="finish-adopt">Close the desk</button>
+        <button class="btn" id="finish-adopt">Close desk</button>
       </div>
     </section>
   `;
@@ -637,8 +597,8 @@ function renderRelic(s: RunState): string {
     <section class="panel">
       <header>
         <div>
-          <h2>Shelter upgrade</h2>
-          <p>Pick one relic for the rest of this season.</p>
+          <h2>Upgrade</h2>
+          <p>Pick one.</p>
         </div>
       </header>
       <div class="grid pets">${cards}</div>
@@ -652,28 +612,24 @@ function renderRelic(s: RunState): string {
 function renderSummary(s: RunState): string {
   const relics = s.relics.map((r) => `<span class="tag">${r.emoji} ${escapeHtml(r.name)}</span>`).join('') || '<span class="tag">None yet</span>';
   const blurb = s.endless
-    ? `Endless Mode — survive as long as you can. ${s.adoptions} adoptions, ${s.reputation} rep.`
-    : `Win by Day ${s.maxDays} with at least 6 adoptions and 40 reputation. Currently ${s.adoptions} adoptions, ${s.reputation} rep.`;
-  const nextLabel = s.endless
-    ? 'Next day'
-    : s.day >= s.maxDays
-      ? 'See results'
-      : 'Next day';
+    ? `${s.adoptions} homes · ${s.reputation} rep`
+    : `Need 6 homes + 40 rep · now ${s.adoptions} / ${s.reputation}`;
+  const nextLabel = s.endless ? 'Next day' : s.day >= s.maxDays ? 'Results' : 'Next day';
   const cost = restockCost();
   return `
     <section class="panel">
       <header>
         <div>
-          <h2>Day ${s.day} wrapped${s.endless ? ' · Endless' : ''}</h2>
+          <h2>Day ${s.day}${s.endless ? ' · Endless' : ''}</h2>
           <p>${blurb}</p>
         </div>
       </header>
       <div class="tags">${relics}</div>
-      <p style="color:var(--muted);margin:0.85rem 0 0;font-weight:700">Stockroom — ${s.supplies} food · ${s.gold} gold. Unfed pets get hungrier overnight.</p>
+      <p style="color:var(--muted);margin:0.85rem 0 0;font-weight:700">🥫 ${s.supplies} · 🪙 ${s.gold}</p>
       <div class="row-actions">
-        <button class="btn ghost" id="buy-food" ${s.gold < cost ? 'disabled' : ''}>Buy 3 food (${cost}🪙)</button>
+        <button class="btn ghost" id="buy-food" ${s.gold < cost ? 'disabled' : ''}>+3 food (${cost}🪙)</button>
         <button class="btn" id="next-day">${nextLabel}</button>
-        ${s.endless ? '<button class="btn ghost" id="retire-endless">Retire shelter</button>' : ''}
+        ${s.endless ? '<button class="btn ghost" id="retire-endless">Retire</button>' : ''}
       </div>
     </section>
   `;
@@ -732,7 +688,7 @@ function bindPhase(s: RunState): void {
     document.getElementById('buy-food')?.addEventListener('click', () => buySupplies());
     document.getElementById('next-day')?.addEventListener('click', () => advanceDay());
     document.getElementById('retire-endless')?.addEventListener('click', () => {
-      if (confirm('Retire from Endless Mode and bank this run?')) retireEndless();
+      if (confirm('Retire this endless run?')) retireEndless();
     });
   }
 }
