@@ -37,6 +37,8 @@ export interface Pet {
   fedToday: boolean;
   /** Treat this visit — adopters score the pet higher and pay a bit more. */
   treatBoost: boolean;
+  /** Colony intake group — accept 3–4 pocket pets into one kennel. */
+  groupId?: string;
 }
 
 export interface AdopterPrefs {

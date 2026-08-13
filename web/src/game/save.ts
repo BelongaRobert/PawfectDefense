@@ -7,11 +7,37 @@ import {
   type XpBreakdown,
   computeRunXp,
 } from './progression';
+import {
+  createAccount,
+  getSessionPassword,
+  getSessionUsername,
+  importRestoreCode,
+  loginAccount,
+  persistAccount,
+  rememberPassword,
+} from './account';
 import { eventById } from './generators';
 import type { DayEvent, RunState, Species } from './types';
 
 const PROFILE_KEY = 'pawfect.profile.v1';
 const RUN_KEY = 'pawfect.run.v1';
+
+function profileKey(): string {
+  const user = getSessionUsername();
+  return user ? `${PROFILE_KEY}.${user}` : PROFILE_KEY;
+}
+
+function runKey(): string {
+  const user = getSessionUsername();
+  return user ? `${RUN_KEY}.${user}` : RUN_KEY;
+}
+
+function syncVault(profile: UserProfile): void {
+  const password = getSessionPassword();
+  if (!password || !getSessionUsername()) return;
+  const runJson = localStorage.getItem(runKey());
+  void persistAccount(profile, runJson, password);
+}
 
 export interface UserProfile {
   version: 1;
@@ -126,7 +152,7 @@ function normalizeProfile(parsed: Partial<UserProfile>): UserProfile {
 
 export function loadProfile(): UserProfile {
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
+    const raw = localStorage.getItem(profileKey());
     if (!raw) return defaultProfile();
     const parsed = JSON.parse(raw) as Partial<UserProfile>;
     if (parsed?.version !== 1) return defaultProfile();
@@ -139,7 +165,8 @@ export function loadProfile(): UserProfile {
 export function saveProfile(profile: UserProfile): void {
   profile.updatedAt = Date.now();
   profile.level = levelFromXp(profile.xp || 0);
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  localStorage.setItem(profileKey(), JSON.stringify(profile));
+  syncVault(profile);
 }
 
 export function setProfileName(name: string): UserProfile {
@@ -268,12 +295,13 @@ export function saveRun(run: RunState): void {
       pendingEventId: run.pendingEvent?.id ?? null,
     },
   };
-  localStorage.setItem(RUN_KEY, JSON.stringify(payload));
+  localStorage.setItem(runKey(), JSON.stringify(payload));
+  syncVault(loadProfile());
 }
 
 export function loadRun(): RunState | null {
   try {
-    const raw = localStorage.getItem(RUN_KEY);
+    const raw = localStorage.getItem(runKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SavedRun;
     if (parsed?.version !== 1 || !parsed.run) return null;
@@ -311,7 +339,68 @@ export function loadRun(): RunState | null {
 }
 
 export function clearRun(): void {
-  localStorage.removeItem(RUN_KEY);
+  localStorage.removeItem(runKey());
+  syncVault(loadProfile());
+}
+
+export function applyAccountPayload(profileRaw: unknown, runJson: string | null): UserProfile {
+  const profile = normalizeProfile((profileRaw || {}) as Partial<UserProfile>);
+  localStorage.setItem(profileKey(), JSON.stringify(profile));
+  if (runJson) localStorage.setItem(runKey(), runJson);
+  else localStorage.removeItem(runKey());
+  return profile;
+}
+
+export async function registerAccount(
+  username: string,
+  password: string,
+): Promise<{ ok: true; username: string } | { ok: false; error: string }> {
+  const profile = loadProfile();
+  const guestRun = localStorage.getItem(RUN_KEY);
+  const result = await createAccount(username, password, profile, guestRun);
+  if (!result.ok) return result;
+  localStorage.setItem(profileKey(), JSON.stringify(profile));
+  if (guestRun) localStorage.setItem(runKey(), guestRun);
+  if (!profile.name.trim()) {
+    profile.name = result.username;
+    saveProfile(profile);
+  } else {
+    syncVault(profile);
+  }
+  return result;
+}
+
+export async function signInAccount(
+  username: string,
+  password: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const result = await loginAccount(username, password);
+  if (!result.ok) return result;
+  applyAccountPayload(result.profile, result.runJson);
+  return { ok: true };
+}
+
+export async function restoreAccount(
+  code: string,
+  password: string,
+): Promise<{ ok: true; username: string } | { ok: false; error: string }> {
+  const imported = await importRestoreCode(code, password);
+  if (!imported.ok) return imported;
+  const result = await loginAccount(imported.username, password);
+  if (!result.ok) return result;
+  applyAccountPayload(result.profile, result.runJson);
+  return { ok: true, username: imported.username };
+}
+
+export async function unlockAccountBackup(
+  password: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = getSessionUsername();
+  if (!user) return { ok: false, error: 'Sign in first.' };
+  const remembered = await rememberPassword(user, password);
+  if (!remembered.ok) return remembered;
+  syncVault(loadProfile());
+  return { ok: true };
 }
 
 export function hasContinue(): boolean {

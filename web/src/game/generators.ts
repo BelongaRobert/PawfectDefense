@@ -14,6 +14,7 @@ import type {
 } from './types';
 import { SPECIES_EMOJI } from './types';
 import { STARTER_SPECIES } from './progression';
+import { isColonySpecies } from './kennel';
 
 const SIZES: Size[] = ['S', 'M', 'L'];
 const ENERGIES: Energy[] = ['calm', 'moderate', 'high'];
@@ -78,9 +79,14 @@ export function createRun(seed = Date.now() % 1e9, meta?: Partial<MetaBonuses>):
   };
 }
 
-export function generatePet(rng: () => number, gentle = false, speciesPool: Species[] = STARTER_SPECIES): Pet {
+export function generatePet(
+  rng: () => number,
+  gentle = false,
+  speciesPool: Species[] = STARTER_SPECIES,
+  forcedSpecies?: Species,
+): Pet {
   const pool = speciesPool.length ? speciesPool : STARTER_SPECIES;
-  const species = pick(rng, pool);
+  const species = forcedSpecies ?? pick(rng, pool);
   const size = SMALLISH.includes(species) ? pick(rng, ['S', 'M'] as Size[]) : pick(rng, SIZES);
   const energy = gentle ? pick(rng, ['calm', 'moderate'] as Energy[]) : pick(rng, ENERGIES);
   const traits = randomTraits(rng);
@@ -148,12 +154,30 @@ export function generateAdopter(
 
 export function generateIntake(state: RunState): Pet[] {
   const rng = mulberry32(state.seed + state.day * 97);
-  let count = state.day <= 2 ? 1 : chance(rng, 0.35) ? 2 : 1;
+  let slots = state.day <= 2 ? 1 : chance(rng, 0.35) ? 2 : 1;
   if (state.endless) {
-    count = chance(rng, 0.45) ? 3 : 2;
+    slots = chance(rng, 0.45) ? 3 : 2;
   }
   const pool = state.metaSpecies?.length ? state.metaSpecies : STARTER_SPECIES;
-  return Array.from({ length: count }, () => generatePet(rng, state.day === 1, pool));
+  const colonyPool = pool.filter(isColonySpecies);
+  const pets: Pet[] = [];
+
+  for (let i = 0; i < slots; i++) {
+    const rollColony = colonyPool.length > 0 && chance(rng, 0.52);
+    if (rollColony) {
+      const species = pick(rng, colonyPool);
+      const size = chance(rng, 0.5) ? 4 : 3;
+      const groupId = id('grp', rng);
+      for (let g = 0; g < size; g++) {
+        const pet = generatePet(rng, state.day === 1, pool, species);
+        pet.groupId = groupId;
+        pets.push(pet);
+      }
+    } else {
+      pets.push(generatePet(rng, state.day === 1, pool));
+    }
+  }
+  return pets;
 }
 
 export function generateAdopters(state: RunState): Adopter[] {

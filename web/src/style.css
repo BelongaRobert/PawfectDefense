@@ -411,13 +411,55 @@ h3 {
 }
 
 .profile-card,
-.continue-card {
+.continue-card,
+.account-card {
   max-width: 26rem;
   padding: 0.85rem 1rem;
   border-radius: 1rem;
   background: rgba(247, 252, 249, 0.14);
   border: 1px solid rgba(231, 244, 238, 0.22);
   color: var(--foam);
+}
+
+.account-copy {
+  margin: 0.35rem 0 0.65rem !important;
+  font-size: 0.92rem !important;
+  max-width: none !important;
+  line-height: 1.45;
+}
+
+.account-notice {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.7rem;
+  background: rgba(232, 165, 75, 0.22);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.restore-box {
+  width: 100%;
+  min-height: 4.5rem;
+  border: 1px solid rgba(231, 244, 238, 0.28);
+  background: rgba(231, 244, 238, 0.12);
+  color: var(--foam);
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  font-size: 0.82rem;
+  resize: vertical;
+}
+
+.card-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.colony-card {
+  background: linear-gradient(180deg, #fffdf6, #eef8f2);
+  border-color: rgba(232, 165, 75, 0.35);
 }
 
 .profile-card-title {

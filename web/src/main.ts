@@ -11,29 +11,47 @@ import {
   chooseEvent,
   clearMatch,
   continueRun,
+  copyRestoreCode,
+  createShelterAccount,
   declineIntake,
+  deviceUsernames,
   doCare,
   enterEndlessMode,
   finishAdoption,
   finishAfterVictory,
   finishCare,
   finishIntake,
+  getAccountNotice,
   getProfile,
   getSaveFlash,
+  getSignedInUsername,
   getState,
+  hasBackupPassword,
+  loginShelterAccount,
+  logoutShelterAccount,
   pickRelic,
   previewMatch,
+  restoreShelterAccount,
   retireEndless,
   saveCheckpoint,
   skipRelic,
   startRun,
   subscribe,
+  unlockShelterBackup,
   updatePlayerName,
   type CareAction,
 } from './game/game';
 import { continueSummary, hasContinue } from './game/save';
 import { TRAIT_LABELS, type Adopter, type Pet, type RunState } from './game/types';
 import { effectiveCapacity } from './game/generators';
+import {
+  COLONY_PER_KENNEL,
+  extraKennelsNeeded,
+  habitatTag,
+  intakeClusters,
+  isColonySpecies,
+  kennelLabel,
+} from './game/kennel';
 import { STARTER_SPECIES, UNLOCKS, unlockedSpecies, xpToNextLevel } from './game/progression';
 
 void initNativeShell();
@@ -80,20 +98,23 @@ function renderTitle(): string {
   const pct = Math.min(100, Math.round((xp.into / xp.need) * 100));
   const species = unlockedSpecies(profile.unlocks);
   const locked = UNLOCKS.filter((u) => !(profile.unlocks || []).includes(u.id));
+  const user = getSignedInUsername();
+  const notice = getAccountNotice();
+  const onDevice = deviceUsernames();
   return `
     <section class="title-screen shell">
       <div class="eyebrow" style="letter-spacing:.14em;text-transform:uppercase;font-weight:800;opacity:.75">Roguelike shelter sim</div>
       <h1>Pawfect Shelter</h1>
-      <p>Take in animals under tight kennels, keep them calm, and match each one to the right home before the season ends.</p>
+      <p>Take in animals under tight kennels, keep them calm, and match each one to the right home before the season ends. Pocket pets share a habitat — ferrets, hamsters, and chameleons don't each take a whole kennel.</p>
 
       <label class="profile-field">
-        <span>Your name</span>
+        <span>Shelter name</span>
         <input id="player-name" type="text" maxlength="24" placeholder="Shelter manager"
           value="${escapeHtml(profile.name)}" autocomplete="nickname" />
       </label>
 
       <div class="profile-card">
-        <div class="profile-card-title">${escapeHtml(profile.name || 'New manager')} · Lv ${profile.level || 1}</div>
+        <div class="profile-card-title">${escapeHtml(profile.name || user || 'New manager')} · Lv ${profile.level || 1}${user ? ` · @${escapeHtml(user)}` : ''}</div>
         <div class="xp-bar" aria-label="Shelter XP">
           <span style="width:${pct}%"></span>
         </div>
@@ -110,7 +131,8 @@ function renderTitle(): string {
             .filter((v, i, a) => a.indexOf(v) === i)
             .map((sp) => {
               const open = species.includes(sp);
-              return `<span class="tag ${open ? 'good' : 'locked'}">${open ? '✓' : '🔒'} ${sp}</span>`;
+              const colony = isColonySpecies(sp);
+              return `<span class="tag ${open ? 'good' : 'locked'}">${open ? '✓' : '🔒'} ${sp}${colony ? ' · habitat' : ''}</span>`;
             })
             .join('')}
         </div>
@@ -124,6 +146,56 @@ function renderTitle(): string {
                   .join('')}
               </div>`
             : ''
+        }
+      </div>
+
+      <div class="account-card">
+        <div class="profile-card-title">Account</div>
+        <p class="account-copy">XP, levels, and unlocks live on this device. Create a username and password (no email) if you want a restore code for another phone. There is no password reset.</p>
+        ${notice ? `<div class="account-notice">${escapeHtml(notice)}</div>` : ''}
+        ${
+          user
+            ? `<div class="profile-stats"><span>Signed in as @${escapeHtml(user)}</span></div>
+               ${
+                 hasBackupPassword()
+                   ? ''
+                   : `<label class="profile-field">
+                        <span>Password (to refresh the backup)</span>
+                        <input id="unlock-pass" type="password" autocomplete="current-password" />
+                      </label>
+                      <div class="row-actions" style="margin-top:.5rem">
+                        <button class="btn small secondary" id="unlock-backup" type="button">Unlock backup</button>
+                      </div>`
+               }
+               <div class="row-actions" style="margin-top:.55rem">
+                 <button class="btn small" id="copy-restore" type="button">Copy restore code</button>
+                 <button class="btn small secondary" id="logout" type="button">Log out</button>
+               </div>
+               <textarea id="restore-out" class="restore-box" readonly hidden></textarea>`
+            : `<label class="profile-field">
+                 <span>Username</span>
+                 <input id="acct-user" type="text" maxlength="20" autocomplete="username" placeholder="at least 3 letters" />
+               </label>
+               <label class="profile-field">
+                 <span>Password</span>
+                 <input id="acct-pass" type="password" autocomplete="new-password" placeholder="at least 4 characters" />
+               </label>
+               <div class="row-actions" style="margin-top:.55rem">
+                 <button class="btn small" id="acct-create" type="button">Create account</button>
+                 <button class="btn small secondary" id="acct-login" type="button">Log in</button>
+               </div>
+               ${onDevice.length ? `<p class="account-copy">On this device: ${onDevice.map((n) => `@${escapeHtml(n)}`).join(', ')}</p>` : ''}
+               <label class="profile-field" style="margin-top:.75rem">
+                 <span>Restore from another device</span>
+                 <textarea id="restore-in" class="restore-box" placeholder="Paste a PFS1. restore code"></textarea>
+               </label>
+               <label class="profile-field">
+                 <span>Password for that code</span>
+                 <input id="restore-pass" type="password" autocomplete="current-password" />
+               </label>
+               <div class="row-actions" style="margin-top:.45rem">
+                 <button class="btn small secondary" id="acct-restore" type="button">Restore save</button>
+               </div>`
         }
       </div>
 
@@ -158,6 +230,39 @@ function bindTitle(): void {
   document.getElementById('continue')?.addEventListener('click', () => continueRun());
   document.getElementById('abandon')?.addEventListener('click', () => {
     if (confirm('Abandon the saved season?')) abandonRun();
+  });
+
+  const userEl = document.getElementById('acct-user') as HTMLInputElement | null;
+  const passEl = document.getElementById('acct-pass') as HTMLInputElement | null;
+  document.getElementById('acct-create')?.addEventListener('click', () => {
+    if (nameInput) updatePlayerName(nameInput.value);
+    void createShelterAccount(userEl?.value || '', passEl?.value || '');
+  });
+  document.getElementById('acct-login')?.addEventListener('click', () => {
+    void loginShelterAccount(userEl?.value || '', passEl?.value || '');
+  });
+  document.getElementById('logout')?.addEventListener('click', () => logoutShelterAccount());
+  document.getElementById('unlock-backup')?.addEventListener('click', () => {
+    const pass = (document.getElementById('unlock-pass') as HTMLInputElement | null)?.value || '';
+    void unlockShelterBackup(pass);
+  });
+  document.getElementById('copy-restore')?.addEventListener('click', async () => {
+    const code = copyRestoreCode();
+    const box = document.getElementById('restore-out') as HTMLTextAreaElement | null;
+    if (!code || !box) return;
+    box.hidden = false;
+    box.value = code;
+    box.select();
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      /* user can copy from the box */
+    }
+  });
+  document.getElementById('acct-restore')?.addEventListener('click', () => {
+    const code = (document.getElementById('restore-in') as HTMLTextAreaElement | null)?.value || '';
+    const pass = (document.getElementById('restore-pass') as HTMLInputElement | null)?.value || '';
+    void restoreShelterAccount(code, pass);
   });
 }
 
@@ -246,7 +351,7 @@ function renderHud(s: RunState): string {
         ${flash ? `<div class="save-flash">${escapeHtml(flash)}</div>` : ''}
       </div>
       <div class="meters">
-        <div class="meter">🏠 ${s.pets.length}/${effectiveCapacity(s)}</div>
+        <div class="meter" title="${s.pets.length} animals">🏠 ${kennelLabel(s.pets, effectiveCapacity(s))}</div>
         <div class="meter">🥫 ${s.supplies} food</div>
         <div class="meter">⚡ ${s.energy}</div>
         <div class="meter">💛 ${s.reputation}</div>
@@ -313,6 +418,7 @@ function petCard(pet: Pet, body: string): string {
       <div class="tags">
         ${!pet.fedToday ? '<span class="tag warn">Hungry</span>' : '<span class="tag good">Fed</span>'}
         ${pet.treatBoost ? '<span class="tag good">Treat boost</span>' : ''}
+        ${isColonySpecies(pet.species) ? '<span class="tag">Shares habitat</span>' : ''}
         ${traits || ''}
       </div>
       ${body}
@@ -322,27 +428,56 @@ function petCard(pet: Pet, body: string): string {
 
 function renderIntake(s: RunState): string {
   const incoming = s.intake.length
-    ? s.intake
-        .map((p) =>
-          petCard(
-            p,
-            `<div class="actions">
-              <button class="btn small" data-accept="${p.id}">Accept</button>
-              <button class="btn small ghost" data-decline="${p.id}">Turn away</button>
-            </div>`,
-          ),
-        )
+    ? intakeClusters(s.intake)
+        .map((cluster) => {
+          const lead = cluster[0]!;
+          if (cluster.length === 1) {
+            const extra = extraKennelsNeeded(s.pets, cluster);
+            const fit = extra === 0 && isColonySpecies(lead.species) ? 'Fits in the existing habitat.' : extra === 1 ? 'Uses 1 kennel.' : `Needs ${extra} kennels.`;
+            return petCard(
+              lead,
+              `<p class="card-note">${fit}</p>
+              <div class="actions">
+                <button class="btn small" data-accept="${lead.id}">Accept</button>
+                <button class="btn small ghost" data-decline="${lead.id}">Turn away</button>
+              </div>`,
+            );
+          }
+          const extra = extraKennelsNeeded(s.pets, cluster);
+          const kennelNote =
+            extra === 0
+              ? `Fits in the ${lead.species} habitat (up to ${COLONY_PER_KENNEL} per kennel).`
+              : `They share one kennel. Accepting uses ${extra} kennel${extra === 1 ? '' : 's'}.`;
+          const names = cluster.map((p) => `${p.emoji} ${escapeHtml(p.name)}`).join(' · ');
+          return `
+            <article class="card colony-card">
+              <div class="card-top">
+                <div>
+                  <div class="emoji">${cluster.map((p) => p.emoji).join('')}</div>
+                  <h3>${lead.species} group of ${cluster.length}</h3>
+                  <div style="color:var(--muted);font-size:.9rem;font-weight:700">Bonded intake · shared habitat</div>
+                </div>
+                <div class="tag good">${cluster.length}/${COLONY_PER_KENNEL} kennel</div>
+              </div>
+              <p class="card-note">${kennelNote}</p>
+              <div class="tags"><span class="tag">${names}</span></div>
+              <div class="actions">
+                <button class="btn small" data-accept="${lead.id}">Accept group</button>
+                <button class="btn small ghost" data-decline="${lead.id}">Turn away group</button>
+              </div>
+            </article>`;
+        })
         .join('')
     : `<p style="color:var(--muted);margin:0">No animals waiting — continue to care.</p>`;
 
-  const housed = s.pets.map((p) => petCard(p, '')).join('');
+  const housed = s.pets.map((p) => petCard(p, habitatTag(s.pets, p.species) ? `<p class="card-note">${habitatTag(s.pets, p.species)}</p>` : '')).join('');
 
   return `
     <section class="panel">
       <header>
         <div>
           <h2>Who comes in?</h2>
-          <p>Kennels are scarce. Accepting fills capacity; turning away costs a little reputation.</p>
+          <p>Dogs, cats, rabbits, and birds each need a kennel. Ferrets, hamsters, and chameleons share — 4 of the same species fill one kennel, and a group of 3–4 arriving together counts as that one kennel.</p>
         </div>
       </header>
       <div class="grid intake">${incoming}</div>

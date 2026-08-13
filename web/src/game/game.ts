@@ -2,7 +2,6 @@ import {
   availableRelics,
   clampRep,
   createRun,
-  effectiveCapacity,
   generateAdopters,
   generateIntake,
   makeDayEvent,
@@ -18,11 +17,28 @@ import {
   recordSeasonEnd,
   recordSeasonStart,
   bankEndlessProgress,
+  registerAccount,
+  restoreAccount,
   saveProfile,
   saveRun,
   setProfileName,
+  signInAccount,
+  unlockAccountBackup,
   type UserProfile,
 } from './save';
+import {
+  exportRestoreCode,
+  getSessionPassword,
+  getSessionUsername,
+  listUsernames,
+  logout,
+} from './account';
+import {
+  canAcceptPets,
+  isColonySpecies,
+  kennelsUsed,
+  petsInGroup,
+} from './kennel';
 import type { Adopter, LogLine, MatchGrade, Pet, Relic, RunState, Stress } from './types';
 
 type Listener = () => void;
@@ -30,6 +46,7 @@ type Listener = () => void;
 let state: RunState = { ...createRun(), phase: 'title', pets: [], log: [] };
 let profile: UserProfile = loadProfile();
 let saveFlash = '';
+let accountNotice = '';
 const listeners = new Set<Listener>();
 
 export function getState(): RunState {
@@ -42,6 +59,22 @@ export function getProfile(): UserProfile {
 
 export function getSaveFlash(): string {
   return saveFlash;
+}
+
+export function getAccountNotice(): string {
+  return accountNotice;
+}
+
+export function getSignedInUsername(): string | null {
+  return getSessionUsername();
+}
+
+export function hasBackupPassword(): boolean {
+  return !!getSessionPassword();
+}
+
+export function deviceUsernames(): string[] {
+  return listUsernames();
 }
 
 export function subscribe(fn: Listener): () => void {
@@ -83,7 +116,75 @@ export function bootToTitle(): void {
 
 export function updatePlayerName(name: string): void {
   profile = setProfileName(name);
+}
+
+export async function createShelterAccount(username: string, password: string): Promise<boolean> {
+  const result = await registerAccount(username, password);
+  if (!result.ok) {
+    accountNotice = result.error;
+    emit({ persist: false });
+    return false;
+  }
+  profile = loadProfile();
+  accountNotice = `Signed in as ${result.username}. Copy a restore code to move XP to another device. Forgotten passwords cannot be reset.`;
+  emit({ persist: false, flash: 'Account saved on this device' });
+  return true;
+}
+
+export async function loginShelterAccount(username: string, password: string): Promise<boolean> {
+  const result = await signInAccount(username, password);
+  if (!result.ok) {
+    accountNotice = result.error;
+    emit({ persist: false });
+    return false;
+  }
+  profile = loadProfile();
+  accountNotice = `Welcome back, ${getSessionUsername()}.`;
+  emit({ persist: false, flash: 'Account loaded' });
+  return true;
+}
+
+export function logoutShelterAccount(): void {
+  logout();
+  profile = loadProfile();
+  accountNotice = 'Signed out. Guest progress on this device is separate.';
   emit({ persist: false });
+}
+
+export async function restoreShelterAccount(code: string, password: string): Promise<boolean> {
+  const result = await restoreAccount(code, password);
+  if (!result.ok) {
+    accountNotice = result.error;
+    emit({ persist: false });
+    return false;
+  }
+  profile = loadProfile();
+  accountNotice = `Restored ${result.username} onto this device.`;
+  emit({ persist: false, flash: 'Save restored' });
+  return true;
+}
+
+export async function unlockShelterBackup(password: string): Promise<boolean> {
+  const result = await unlockAccountBackup(password);
+  if (!result.ok) {
+    accountNotice = result.error;
+    emit({ persist: false });
+    return false;
+  }
+  accountNotice = 'Backup password unlocked. Restore codes will include latest XP.';
+  emit({ persist: false });
+  return true;
+}
+
+export function copyRestoreCode(): string | null {
+  if (getSessionPassword()) saveProfile(profile);
+  const code = exportRestoreCode();
+  if (!code) {
+    accountNotice = 'Sign in first, then copy a restore code.';
+    emit({ persist: false });
+    return null;
+  }
+  return code;
 }
 
 export function startRun(): void {
@@ -140,14 +241,29 @@ export function acceptIntake(petId: string): void {
   if (state.phase !== 'intake') return;
   const pet = state.intake.find((p) => p.id === petId);
   if (!pet) return;
-  if (state.pets.length >= effectiveCapacity(state)) {
-    log('No kennels free — turn someone away or free a space first.', 'bad');
+  const cluster = pet.groupId ? petsInGroup(state.intake, pet.groupId) : [pet];
+  if (!canAcceptPets(state, cluster)) {
+    log(
+      cluster.length > 1
+        ? `Need a free kennel for this ${pet.species} group (they share one habitat).`
+        : isColonySpecies(pet.species)
+          ? `No habitat space — ${pet.species}s share kennels, 4 per kennel.`
+          : 'No kennels free — turn someone away or free a space first.',
+      'bad',
+    );
     emit();
     return;
   }
-  state.intake = state.intake.filter((p) => p.id !== petId);
-  state.pets.push(pet);
-  log(`Welcomed ${pet.name} ${pet.emoji}`, 'good');
+  const ids = new Set(cluster.map((p) => p.id));
+  state.intake = state.intake.filter((p) => !ids.has(p.id));
+  state.pets.push(...cluster);
+  if (cluster.length > 1) {
+    log(`Welcomed a ${pet.species} group of ${cluster.length} — they share one kennel.`, 'good');
+  } else if (isColonySpecies(pet.species)) {
+    log(`Welcomed ${pet.name} ${pet.emoji} (shares a ${pet.species} habitat).`, 'good');
+  } else {
+    log(`Welcomed ${pet.name} ${pet.emoji}`, 'good');
+  }
   emit();
 }
 
@@ -155,9 +271,15 @@ export function declineIntake(petId: string): void {
   if (state.phase !== 'intake') return;
   const pet = state.intake.find((p) => p.id === petId);
   if (!pet) return;
-  state.intake = state.intake.filter((p) => p.id !== petId);
+  const cluster = pet.groupId ? petsInGroup(state.intake, pet.groupId) : [pet];
+  const ids = new Set(cluster.map((p) => p.id));
+  state.intake = state.intake.filter((p) => !ids.has(p.id));
   state.reputation = clampRep(state.reputation - 2);
-  log(`Turned away ${pet.name} (−2 rep). Hard, but capacity is real.`, 'bad');
+  if (cluster.length > 1) {
+    log(`Turned away a ${pet.species} group of ${cluster.length} (−2 rep).`, 'bad');
+  } else {
+    log(`Turned away ${pet.name} (−2 rep). Hard, but capacity is real.`, 'bad');
+  }
   emit();
 }
 
@@ -340,7 +462,7 @@ function resolveEvening(): void {
     }
     if (pet.daysHeld >= 3) bump += 1;
     if (pet.traits.specialNeeds) bump += 1;
-    if (state.pets.length > state.capacity) bump += 1;
+    if (kennelsUsed(state.pets) > state.capacity) bump += 1;
     if (soft && bump > 0 && rng() < 0.25) bump -= 1;
     if (bump > 0) setStress(pet, pet.stress + bump);
     pet.fedToday = false;
@@ -348,7 +470,7 @@ function resolveEvening(): void {
   }
 
   // Collapse check
-  const full = state.pets.length >= state.capacity;
+  const full = kennelsUsed(state.pets) >= state.capacity;
   const allCritical = state.pets.length > 0 && state.pets.every((p) => p.stress >= 3);
   if (full && allCritical) {
     endRun(false, 'The shelter collapsed under critical stress while full.');
