@@ -2,7 +2,9 @@
 
 Roguelike pet-adoption shelter sim. Take in animals, manage kennels/supplies/staff energy, and match pets to the right adopters.
 
-> The old Unity combat deck-builder remains under `Assets/` as legacy. **Play this game from `web/`.**
+**Play:** [https://belongarobert.github.io/PawfectDefense/docs/](https://belongarobert.github.io/PawfectDefense/docs/)
+
+> The old Unity combat deck-builder remains under `Assets/` as legacy. The playable game is in `web/` (source) and `docs/` (GitHub Pages build).
 
 ## Play
 
