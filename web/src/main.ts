@@ -103,12 +103,19 @@ function renderTitle(): string {
   const user = getSignedInUsername();
   const notice = getAccountNotice();
   const onDevice = deviceUsernames();
-  const showAccount = !signedIn || !!notice;
 
   return `
     <section class="title-screen shell">
-      <h1>Pawfect Shelter</h1>
-      <p class="tagline">Match pets. Fill kennels. Survive 10 days.</p>
+      <div class="title-hero">
+        <h1>Pawfect Shelter</h1>
+        <button class="info-btn" id="info-toggle" type="button" aria-expanded="false" aria-controls="info-bubble" title="How to play">i</button>
+      </div>
+      <div class="info-bubble" id="info-bubble" hidden>
+        <p>Run a shelter for 10 days.</p>
+        <p>Take pets in → care for them → match visitors.</p>
+        <p>Win with 6+ homes and 40+ rep.</p>
+        <p>Small pets share a kennel (4 of a kind).</p>
+      </div>
 
       ${
         signedIn
@@ -143,13 +150,13 @@ function renderTitle(): string {
         <button class="btn play-btn" id="start">${cont ? 'New run' : 'Play'}</button>
       </div>
 
-      <details class="account-drawer" ${showAccount ? 'open' : ''}>
-        <summary>${signedIn ? `Account · @${escapeHtml(user || '')}` : 'Save progress'}</summary>
+      <details class="account-drawer" ${notice ? 'open' : ''}>
+        <summary>${signedIn ? `@${escapeHtml(user || '')}` : 'Save'}</summary>
         ${notice ? `<div class="account-notice">${escapeHtml(notice)}</div>` : ''}
         ${
           signedIn
             ? `<label class="profile-field">
-                 <span>Shelter name</span>
+                 <span>Name</span>
                  <input id="player-name" type="text" maxlength="24" placeholder="Manager"
                    value="${escapeHtml(profile.name)}" autocomplete="nickname" />
                </label>
@@ -161,7 +168,7 @@ function renderTitle(): string {
                         <input id="unlock-pass" type="password" autocomplete="current-password" />
                       </label>
                       <div class="row-actions" style="margin-top:.45rem">
-                        <button class="btn small secondary" id="unlock-backup" type="button">Unlock backup</button>
+                        <button class="btn small secondary" id="unlock-backup" type="button">Unlock</button>
                       </div>`
                }
                <div class="row-actions" style="margin-top:.55rem">
@@ -201,6 +208,16 @@ function renderTitle(): string {
 }
 
 function bindTitle(): void {
+  const infoBtn = document.getElementById('info-toggle');
+  const bubble = document.getElementById('info-bubble');
+  infoBtn?.addEventListener('click', () => {
+    if (!bubble || !infoBtn) return;
+    const open = bubble.hasAttribute('hidden');
+    if (open) bubble.removeAttribute('hidden');
+    else bubble.setAttribute('hidden', '');
+    infoBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
   const nameInput = document.getElementById('player-name') as HTMLInputElement | null;
   nameInput?.addEventListener('change', () => updatePlayerName(nameInput.value));
   nameInput?.addEventListener('blur', () => updatePlayerName(nameInput.value));
@@ -458,7 +475,6 @@ function renderIntake(s: RunState): string {
       <header>
         <div>
           <h2>Intake</h2>
-          <p>Take them in or pass. Small pets share habitats.</p>
         </div>
       </header>
       <div class="grid intake">${incoming}</div>
@@ -540,7 +556,6 @@ function renderAdoption(s: RunState): string {
       <header>
         <div>
           <h2>Match</h2>
-          <p>Pick a pet for each visitor.</p>
         </div>
       </header>
       <div class="grid adopters">${cards}</div>
@@ -598,7 +613,6 @@ function renderRelic(s: RunState): string {
       <header>
         <div>
           <h2>Upgrade</h2>
-          <p>Pick one.</p>
         </div>
       </header>
       <div class="grid pets">${cards}</div>
