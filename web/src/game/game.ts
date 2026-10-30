@@ -157,6 +157,14 @@ export function logoutShelterAccount(): void {
   emit({ persist: false });
 }
 
+/** Guest tap on Save — remind them login is on the title menu. */
+export function nudgeLoginToSave(): void {
+  emit({
+    persist: false,
+    flash: 'Guest runs vanish. Menu → Log in to save keeps XP.',
+  });
+}
+
 export async function restoreShelterAccount(code: string, password: string): Promise<boolean> {
   const result = await restoreAccount(code, password);
   if (!result.ok) {

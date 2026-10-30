@@ -252,6 +252,14 @@ h3 {
   color: var(--accent-ink);
 }
 
+.account-hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .account-drawer .profile-stats {
   color: var(--muted);
 }

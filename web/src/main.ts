@@ -32,6 +32,7 @@ import {
   logoutShelterAccount,
   pickRelic,
   previewMatch,
+  nudgeLoginToSave,
   restoreShelterAccount,
   retireEndless,
   saveCheckpoint,
@@ -112,9 +113,10 @@ function renderTitle(): string {
       </div>
       <div class="info-bubble" id="info-bubble" hidden>
         <p>Run a shelter for 10 days.</p>
-        <p>Take pets in → care for them → match visitors.</p>
+        <p>Take pets in → care → match visitors.</p>
         <p>Win with 6+ homes and 40+ rep.</p>
         <p>Small pets share a kennel (4 of a kind).</p>
+        <p>Guest play is temporary. Log in to keep XP and Continue.</p>
       </div>
 
       ${
@@ -150,8 +152,8 @@ function renderTitle(): string {
         <button class="btn play-btn" id="start">${cont ? 'New run' : 'Play'}</button>
       </div>
 
-      <details class="account-drawer" ${notice ? 'open' : ''}>
-        <summary>${signedIn ? `@${escapeHtml(user || '')}` : 'Save'}</summary>
+      <details class="account-drawer" ${!signedIn || notice ? 'open' : ''}>
+        <summary>${signedIn ? `Account · @${escapeHtml(user || '')}` : 'Log in to save'}</summary>
         ${notice ? `<div class="account-notice">${escapeHtml(notice)}</div>` : ''}
         ${
           signedIn
@@ -176,7 +178,8 @@ function renderTitle(): string {
                  <button class="btn small secondary" id="logout" type="button">Log out</button>
                </div>
                <textarea id="restore-out" class="restore-box" readonly hidden></textarea>`
-            : `<label class="profile-field">
+            : `<p class="account-hint">Username + password. No email. Keeps XP and Continue on this phone.</p>
+               <label class="profile-field">
                  <span>Username</span>
                  <input id="acct-user" type="text" maxlength="20" autocomplete="username" />
                </label>
@@ -185,7 +188,7 @@ function renderTitle(): string {
                  <input id="acct-pass" type="password" autocomplete="new-password" />
                </label>
                <div class="row-actions" style="margin-top:.55rem">
-                 <button class="btn small" id="acct-create" type="button">Create</button>
+                 <button class="btn small" id="acct-create" type="button">Create account</button>
                  <button class="btn small secondary" id="acct-login" type="button">Log in</button>
                </div>
                ${onDevice.length ? `<div class="profile-stats" style="margin-top:.5rem">${onDevice.map((n) => `<span>@${escapeHtml(n)}</span>`).join('')}</div>` : ''}
@@ -354,7 +357,11 @@ function renderHud(s: RunState): string {
         <div class="meter">💛 ${s.reputation}</div>
         <div class="meter">🪙 ${s.gold}</div>
         <div class="meter">✅ ${s.adoptions}</div>
-        ${isLoggedIn() ? '<button class="meter meter-btn" id="save-now" type="button">💾 Save</button>' : '<div class="meter">Guest</div>'}
+        ${
+          isLoggedIn()
+            ? '<button class="meter meter-btn" id="save-now" type="button">💾 Save</button>'
+            : '<button class="meter meter-btn" id="goto-login" type="button">Log in to save</button>'
+        }
       </div>
     </div>
   `;
@@ -651,6 +658,7 @@ function renderSummary(s: RunState): string {
 
 function bindPhase(s: RunState): void {
   document.getElementById('save-now')?.addEventListener('click', () => saveCheckpoint());
+  document.getElementById('goto-login')?.addEventListener('click', () => nudgeLoginToSave());
 
   if (s.phase === 'intake') {
     app.querySelectorAll<HTMLButtonElement>('[data-accept]').forEach((btn) => {
