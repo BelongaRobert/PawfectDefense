@@ -1,26 +1,32 @@
 import './style.css';
 import { initNativeShell } from './native';
+import { cardName, cardText, getCard } from './game/cards';
+import { intentView } from './game/combat';
+import { getEncounter, getEnemy } from './game/encounters';
 import {
   abandonRun,
-  acceptIntake,
-  advanceDay,
-  assignMatch,
-  buySupplies,
-  restockCost,
+  aimEnemy,
   bootToTitle,
+  buyShopCard,
+  buyShopPotion,
+  buyShopRelic,
+  canUpgrade,
+  cancelPicker,
+  cardEnergy,
+  cardPlayable,
+  chooseBossRelic,
   chooseEvent,
-  clearMatch,
+  chooseNode,
+  confirmRemove,
+  confirmUpgrade,
   continueRun,
   copyRestoreCode,
   createShelterAccount,
-  declineIntake,
   deviceUsernames,
-  doCare,
-  enterEndlessMode,
-  finishAdoption,
-  finishAfterVictory,
-  finishCare,
-  finishIntake,
+  drinkPotion,
+  eventPresentation,
+  exhaustChoice,
+  finishTurn,
   getAccountNotice,
   getProfile,
   getSaveFlash,
@@ -28,68 +34,128 @@ import {
   getState,
   hasBackupPassword,
   isLoggedIn,
+  leaveReward,
+  leaveShop,
   loginShelterAccount,
   logoutShelterAccount,
-  pickRelic,
-  previewMatch,
   nudgeLoginToSave,
+  openUpgradePicker,
+  playHandCard,
+  POTIONS,
+  restHeal,
   restoreShelterAccount,
-  retireEndless,
-  saveCheckpoint,
-  skipRelic,
+  shopRemove,
+  skipRewardCard,
   startRun,
   subscribe,
+  takeRewardCard,
   unlockShelterBackup,
   updatePlayerName,
-  type CareAction,
 } from './game/game';
+import { UNLOCKS, xpToNextLevel } from './game/progression';
+import { getRelic } from './game/relics';
 import { continueSummary, hasContinue } from './game/save';
-import { TRAIT_LABELS, type Adopter, type Pet, type RunState } from './game/types';
-import { effectiveCapacity } from './game/generators';
-import {
-  COLONY_PER_KENNEL,
-  extraKennelsNeeded,
-  habitatTag,
-  intakeClusters,
-  isColonySpecies,
-  kennelLabel,
-} from './game/kennel';
-import { UNLOCKS, unlockedSpecies, xpToNextLevel } from './game/progression';
+import type { CardInstance, CombatState, MapNode, RunState } from './game/types';
 
 void initNativeShell();
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
+/** Pile and shop-remove sheets are UI-only. They are not part of the save. */
+let sheet: { title: string; cards: CardInstance[]; pick: 'shop-remove' | null } | null = null;
+
 bootToTitle();
-subscribe(render);
+subscribe(() => {
+  sheet = null;
+  render();
+});
+app.addEventListener('click', onClick);
 render();
+
+function onClick(event: MouseEvent): void {
+  const el = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-act]');
+  if (!el || !app.contains(el)) return;
+  const act = el.dataset.act || '';
+  const id = el.dataset.id || '';
+  const index = Number(el.dataset.index ?? '-1');
+  if (act === 'close-sheet') {
+    sheet = null;
+    render();
+    return;
+  }
+  if (act === 'show-deck') {
+    const s = getState();
+    sheet = { title: `Deck · ${s.deck.length}`, cards: s.deck, pick: null };
+    render();
+    return;
+  }
+  if (act === 'show-pile') {
+    const combat = getState().combat;
+    if (!combat) return;
+    const pile = el.dataset.pile;
+    if (pile === 'draw') sheet = { title: `Draw · ${combat.draw.length}`, cards: [...combat.draw].reverse(), pick: null };
+    if (pile === 'discard') sheet = { title: `Discard · ${combat.discard.length}`, cards: combat.discard, pick: null };
+    if (pile === 'exhaust') sheet = { title: `Exhaust · ${combat.exhaustPile.length}`, cards: combat.exhaustPile, pick: null };
+    render();
+    return;
+  }
+  if (act === 'shop-remove-open') {
+    sheet = { title: 'Remove a card', cards: getState().deck, pick: 'shop-remove' };
+    render();
+    return;
+  }
+  if (act === 'node') chooseNode(id);
+  else if (act === 'play') playHandCard(id);
+  else if (act === 'enemy') aimEnemy(id);
+  else if (act === 'exhaust') exhaustChoice(id);
+  else if (act === 'end-turn') finishTurn();
+  else if (act === 'potion') drinkPotion();
+  else if (act === 'take-card') takeRewardCard(id);
+  else if (act === 'skip-reward') skipRewardCard();
+  else if (act === 'leave-reward') leaveReward();
+  else if (act === 'boss-relic') chooseBossRelic(id);
+  else if (act === 'rest-heal') restHeal();
+  else if (act === 'rest-upgrade') openUpgradePicker();
+  else if (act === 'upgrade') confirmUpgrade(id);
+  else if (act === 'remove') confirmRemove(id);
+  else if (act === 'cancel-picker') cancelPicker();
+  else if (act === 'buy-card') buyShopCard(index);
+  else if (act === 'buy-relic') buyShopRelic(index);
+  else if (act === 'buy-potion') buyShopPotion();
+  else if (act === 'shop-remove') shopRemove(id);
+  else if (act === 'leave-shop') leaveShop();
+  else if (act === 'event-choice') chooseEvent(id);
+  else if (act === 'menu') {
+    const guest = !isLoggedIn();
+    const msg = guest ? 'Leave this guest run? It will be lost.' : 'Return to the menu? This run stays saved.';
+    if (confirm(msg)) bootToTitle();
+  } else if (act === 'again') startRun();
+  else if (act === 'to-title') bootToTitle();
+  else if (act === 'login-hint') nudgeLoginToSave();
+}
 
 function render(): void {
   const s = getState();
+  if (sheet?.pick === 'shop-remove' && s.phase !== 'shop') sheet = null;
+  if (sheet && !sheet.pick && s.phase !== 'combat' && !sheet.title.startsWith('Deck')) sheet = null;
+
   if (s.phase === 'title') {
     app.innerHTML = renderTitle();
     bindTitle();
     return;
   }
-  if (s.phase === 'victory') {
-    app.innerHTML = renderVictory(s);
-    bindVictory();
-    return;
-  }
-  if (s.phase === 'ended') {
+  if (s.phase === 'victory' || s.phase === 'ended') {
     app.innerHTML = renderEnded(s);
-    bindEnded();
     return;
   }
 
   app.innerHTML = `
-    <div class="shell">
+    <div class="run">
       ${renderHud(s)}
       ${renderPhase(s)}
-      ${renderLog(s)}
+      ${renderSheet()}
     </div>
   `;
-  bindPhase(s);
 }
 
 function renderTitle(): string {
@@ -99,8 +165,8 @@ function renderTitle(): string {
   const stats = profile.stats;
   const xp = xpToNextLevel(profile.xp || 0);
   const pct = Math.min(100, Math.round((xp.into / xp.need) * 100));
-  const species = unlockedSpecies(profile.unlocks);
   const nextUnlock = UNLOCKS.find((u) => !(profile.unlocks || []).includes(u.id));
+  const owned = UNLOCKS.filter((u) => (profile.unlocks || []).includes(u.id));
   const user = getSignedInUsername();
   const notice = getAccountNotice();
   const onDevice = deviceUsernames();
@@ -112,10 +178,9 @@ function renderTitle(): string {
         <button class="info-btn" id="info-toggle" type="button" aria-expanded="false" aria-controls="info-bubble" title="How to play">i</button>
       </div>
       <div class="info-bubble" id="info-bubble" hidden>
-        <p>Run a shelter for 10 days.</p>
-        <p>Take pets in → care → match visitors.</p>
-        <p>Win with 6+ homes and 40+ rep.</p>
-        <p>Small pets share a kennel (4 of a kind).</p>
+        <p>Three acts. One kennel lead. A real fight.</p>
+        <p>Spend energy on Attacks, Skills, and Powers. Block lasts through the enemy turn.</p>
+        <p>Enemies show the hit before they take it. Draft toward Strength, Block, or Vulnerable.</p>
         <p>Guest play is temporary. Log in to keep XP and Continue.</p>
       </div>
 
@@ -126,12 +191,15 @@ function renderTitle(): string {
               <div class="xp-bar" aria-label="Shelter XP"><span style="width:${pct}%"></span></div>
               <div class="profile-stats">
                 <span>${stats.seasonsWon} wins</span>
-                <span>${stats.totalAdoptions} homes</span>
+                <span>Best act ${stats.bestAct || 0}</span>
+                <span>${stats.elitesDefeated} elites</span>
                 ${nextUnlock ? `<span>Next: Lv ${nextUnlock.level} ${nextUnlock.emoji}</span>` : ''}
               </div>
-              <div class="unlock-row">
-                ${species.map((sp) => `<span class="tag good">${sp}</span>`).join('')}
-              </div>
+              ${
+                owned.length
+                  ? `<div class="unlock-row">${owned.map((u) => `<span class="tag good">${u.emoji} ${escapeHtml(u.name)}</span>`).join('')}</div>`
+                  : ''
+              }
             </div>`
           : ''
       }
@@ -139,7 +207,7 @@ function renderTitle(): string {
       ${
         cont
           ? `<div class="continue-card">
-              <div class="continue-line">Day ${cont.day} · ${cont.adoptions} homes · ${cont.reputation} rep</div>
+              <div class="continue-line">Act ${cont.act} · ${cont.hp} HP · ${cont.gold} gold</div>
               <div class="row-actions" style="margin-top:.55rem">
                 <button class="btn" id="continue">Continue</button>
                 <button class="btn secondary" id="abandon">Quit save</button>
@@ -147,6 +215,8 @@ function renderTitle(): string {
             </div>`
           : ''
       }
+
+      ${renderRewardBlock()}
 
       <div class="row-actions play-row">
         <button class="btn play-btn" id="start">${cont ? 'New run' : 'Play'}</button>
@@ -267,7 +337,7 @@ function bindTitle(): void {
     try {
       await navigator.clipboard.writeText(code);
     } catch {
-      /* user can copy from the field */
+      /* the field stays selected */
     }
   });
   document.getElementById('acct-restore')?.addEventListener('click', () => {
@@ -297,435 +367,510 @@ function renderRewardBlock(): string {
   `;
 }
 
-function renderVictory(s: RunState): string {
-  const profile = getProfile();
-  return `
-    <section class="ended shell victory-screen">
-      <h1>Season clear!</h1>
-      <p>${s.adoptions} homes · ${s.reputation} rep</p>
-      ${renderRewardBlock()}
-      <p class="ended-profile">Lv ${profile.level} · ${profile.xp} XP</p>
-      <div class="row-actions">
-        <button class="btn" id="endless">Keep going</button>
-        <button class="btn secondary" id="finish-season">Done</button>
-      </div>
-    </section>
-  `;
-}
-
-function bindVictory(): void {
-  document.getElementById('endless')?.addEventListener('click', () => enterEndlessMode());
-  document.getElementById('finish-season')?.addEventListener('click', () => finishAfterVictory());
-}
-
 function renderEnded(s: RunState): string {
   const profile = getProfile();
+  const title = s.phase === 'victory' ? 'The kennel holds' : s.won ? 'Nice run.' : 'Run over.';
   return `
-    <section class="ended shell">
-      <h1>${s.won ? 'Nice run.' : 'Run over.'}</h1>
+    <section class="ended shell ${s.phase === 'victory' ? 'victory-screen' : ''}">
+      <h1>${title}</h1>
       <p>${escapeHtml(s.endReason ?? '')}</p>
-      <p>${s.adoptions} homes · ${s.returns} returns · ${s.reputation} rep${s.endless || s.day > s.maxDays ? ` · Day ${s.day}` : ''}</p>
+      <p>Act ${s.act} · ${s.fightsWon} fights · ${s.elitesWon} elites · ${s.floors} rooms</p>
       ${renderRewardBlock()}
       <p class="ended-profile">Lv ${profile.level} · ${profile.xp} XP</p>
       <div class="row-actions">
-        <button class="btn" id="again">Play again</button>
-        <button class="btn secondary" id="to-title">Menu</button>
+        <button class="btn" data-act="again" type="button">Play again</button>
+        <button class="btn secondary" data-act="to-title" type="button">Menu</button>
       </div>
     </section>
   `;
-}
-
-function bindEnded(): void {
-  document.getElementById('again')?.addEventListener('click', () => startRun());
-  document.getElementById('to-title')?.addEventListener('click', () => bootToTitle());
 }
 
 function renderHud(s: RunState): string {
   const profile = getProfile();
   const flash = getSaveFlash();
-  const phaseLabel: Record<string, string> = {
-    intake: 'Intake',
-    care: 'Care',
-    adoption: 'Match',
-    event: 'Event',
-    relic: 'Upgrade',
-    summary: 'Day end',
-  };
+  const potion = s.potion ? POTIONS[s.potion] : null;
+  const relics = s.relics
+    .map((id) => {
+      const relic = getRelic(id);
+      return relic ? `<span class="relic-pip" title="${escapeHtml(relic.name)}: ${escapeHtml(relic.description)}">${relic.emoji}</span>` : '';
+    })
+    .join('');
   return `
-    <div class="hud">
+    <header class="run-hud">
       <div class="brand-lockup">
-        <div class="eyebrow">${s.endless ? `Endless · Day ${s.day}` : `Day ${s.day} / ${s.maxDays}`}${profile.name ? ` · ${escapeHtml(profile.name)}` : ''}</div>
+        <div class="eyebrow">Act ${s.act}${profile.name ? ` · ${escapeHtml(profile.name)}` : ''}</div>
         <h1>Pawfect Shelter</h1>
-        <div style="opacity:.8;font-weight:700">${phaseLabel[s.phase] ?? s.phase}</div>
         ${flash ? `<div class="save-flash">${escapeHtml(flash)}</div>` : ''}
       </div>
       <div class="meters">
-        <div class="meter" title="${s.pets.length} animals">🏠 ${kennelLabel(s.pets, effectiveCapacity(s))}</div>
-        <div class="meter">🥫 ${s.supplies} food</div>
-        <div class="meter">⚡ ${s.energy}</div>
-        <div class="meter">💛 ${s.reputation}</div>
+        <div class="meter">❤️ ${s.hp}/${s.maxHp}</div>
         <div class="meter">🪙 ${s.gold}</div>
-        <div class="meter">✅ ${s.adoptions}</div>
+        <div class="meter" title="${potion ? escapeHtml(potion.text) : 'Empty potion slot'}">${potion ? `${potion.emoji} ${escapeHtml(potion.name)}` : '🧪 —'}</div>
+        <button class="meter meter-btn" type="button" data-act="show-deck">Deck ${s.deck.length}</button>
         ${
           isLoggedIn()
-            ? '<button class="meter meter-btn" id="save-now" type="button">💾 Save</button>'
-            : '<button class="meter meter-btn" id="goto-login" type="button">Log in to save</button>'
+            ? ''
+            : '<button class="meter meter-btn" type="button" data-act="login-hint">Log in</button>'
         }
+        <button class="meter meter-btn" type="button" data-act="menu">Menu</button>
+      </div>
+      <div class="relic-row">${relics}</div>
+    </header>
+  `;
+}
+
+function renderPhase(s: RunState): string {
+  if (s.phase === 'map') return renderMap(s);
+  if (s.phase === 'combat' && s.combat) return renderCombat(s.combat);
+  if (s.phase === 'reward' && s.reward) return renderReward(s);
+  if (s.phase === 'rest') return renderRest(s);
+  if (s.phase === 'shop' && s.shop) return renderShop(s);
+  if (s.phase === 'event') return renderEvent(s);
+  if (s.phase === 'relic') return renderBossRelic(s);
+  return '';
+}
+
+const NODE_FACE: Record<MapNode['kind'], { emoji: string; label: string }> = {
+  combat: { emoji: '🐾', label: 'Fight' },
+  elite: { emoji: '⚠️', label: 'Elite' },
+  rest: { emoji: '🔥', label: 'Rest' },
+  shop: { emoji: '🛒', label: 'Shop' },
+  event: { emoji: '❓', label: '?' },
+  boss: { emoji: '👑', label: 'Boss' },
+};
+
+function nodeTitle(node: MapNode): string {
+  if (node.kind === 'boss' && node.encounterId) {
+    const encounter = getEncounter(node.encounterId);
+    return encounter.enemies.map((e) => e.name ?? getEnemy(e.defId).name).join(' & ');
+  }
+  return NODE_FACE[node.kind].label;
+}
+
+function renderMap(s: RunState): string {
+  const lines: string[] = [];
+  for (const node of s.map.nodes) {
+    for (const nextId of node.next) {
+      const next = s.map.nodes.find((n) => n.id === nextId);
+      if (!next) continue;
+      const x1 = ((node.col + 0.5) / 3) * 300;
+      const y1 = ((7 - node.row + 0.5) / 8) * 800;
+      const x2 = ((next.col + 0.5) / 3) * 300;
+      const y2 = ((7 - next.row + 0.5) / 8) * 800;
+      lines.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`);
+    }
+  }
+  const rows: string[] = [];
+  for (let row = 7; row >= 0; row--) {
+    const slots = [0, 1, 2].map((col) => {
+      const node = s.map.nodes.find((n) => n.row === row && n.col === col);
+      return node ? mapNode(s, node) : '<div class="map-slot"></div>';
+    });
+    rows.push(`<div class="map-row">${slots.join('')}</div>`);
+  }
+  return `
+    <section class="map-board panel" aria-label="Act ${s.act} map">
+      <header>
+        <div>
+          <h2>Act ${s.act}</h2>
+          <p>Pick an open room. The boss waits at the top.</p>
+        </div>
+      </header>
+      <div class="map-grid">
+        <svg class="map-lines" viewBox="0 0 300 800" preserveAspectRatio="none" aria-hidden="true">${lines.join('')}</svg>
+        <div class="map-rows">${rows.join('')}</div>
+      </div>
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function mapNode(s: RunState, node: MapNode): string {
+  const open = s.reachable.includes(node.id);
+  const done = s.cleared.includes(node.id);
+  const face = NODE_FACE[node.kind];
+  const cls = ['map-node', `kind-${node.kind}`, open ? 'is-open' : '', done ? 'is-done' : '', !open && !done ? 'is-locked' : '']
+    .filter(Boolean)
+    .join(' ');
+  const label = node.kind === 'boss' ? nodeTitle(node) : face.label;
+  return `
+    <button class="${cls}" type="button" data-act="node" data-id="${escapeHtml(node.id)}" ${open ? '' : 'disabled'} title="${escapeHtml(label)}">
+      <span class="map-emoji">${face.emoji}</span>
+      <span class="map-label">${escapeHtml(label)}</span>
+    </button>
+  `;
+}
+
+function renderCombat(combat: CombatState): string {
+  const pending = combat.pending;
+  const prompt =
+    pending?.type === 'target'
+      ? 'Choose an enemy. Tap the card again to cancel.'
+      : pending?.type === 'potion'
+        ? 'Choose an enemy for the potion.'
+        : pending?.type === 'exhaust'
+          ? 'Exhaust a card from your hand.'
+          : combat.doubleNextAttack
+            ? 'Your next Attack plays twice.'
+            : '';
+  const enemies = combat.enemies
+    .map((enemy) => {
+      const alive = enemy.hp > 0;
+      const intent = alive ? intentView(enemy, combat.player) : null;
+      const pct = Math.max(0, Math.min(100, Math.round((enemy.hp / enemy.maxHp) * 100)));
+      const aiming = alive && (pending?.type === 'target' || pending?.type === 'potion');
+      return `
+        <article class="enemy ${alive ? '' : 'is-down'} ${aiming ? 'is-aim' : ''}">
+          <button class="enemy-hit" type="button" data-act="enemy" data-id="${escapeHtml(enemy.uid)}" ${aiming ? '' : 'disabled'}>
+            <div class="enemy-top">
+              <span class="emoji">${enemy.emoji}</span>
+              <div>
+                <h3>${escapeHtml(enemy.name)}</h3>
+                <div class="hpnum">${Math.max(0, enemy.hp)}/${enemy.maxHp}</div>
+              </div>
+            </div>
+            <div class="hpbar"><span style="width:${pct}%"></span></div>
+            ${intent ? `<div class="intent intent-${intent.tone}">${escapeHtml(intent.label)} <strong>${escapeHtml(intent.value)}</strong></div>` : '<div class="intent">Down</div>'}
+            <div class="chips">${statusChips(enemy)}</div>
+          </button>
+        </article>
+      `;
+    })
+    .join('');
+
+  const hand = combat.hand
+    .map((card) => {
+      if (pending?.type === 'exhaust') {
+        return playCardFace(card, { act: 'exhaust', selected: false, disabled: false });
+      }
+      const selected = pending?.type === 'target' && pending.cardUid === card.uid;
+      const playable = cardPlayable(combat, card);
+      return playCardFace(card, { act: 'play', selected, disabled: !playable && !selected });
+    })
+    .join('');
+
+  const potion = getState().potion;
+  const potionMeta = potion ? POTIONS[potion] : null;
+  const playerPct = Math.max(0, Math.min(100, Math.round((combat.player.hp / combat.player.maxHp) * 100)));
+
+  return `
+    <section class="combat" aria-label="Combat">
+      <div class="enemy-row">${enemies}</div>
+      ${prompt ? `<p class="combat-prompt">${escapeHtml(prompt)}</p>` : ''}
+      <div class="you-bar">
+        <div>
+          <div class="hpnum">You ${combat.player.hp}/${combat.player.maxHp}</div>
+          <div class="hpbar you"><span style="width:${playerPct}%"></span></div>
+          <div class="chips">${statusChips(combat.player)}</div>
+        </div>
+        <div class="energy" aria-label="Energy">${combat.player.energy}<span>/${combat.player.maxEnergy}</span></div>
+        <button class="btn small ${potionMeta ? '' : 'secondary'}" type="button" data-act="potion" ${potionMeta && !pending ? '' : 'disabled'} title="${potionMeta ? escapeHtml(potionMeta.text) : 'No potion'}">
+          ${potionMeta ? `${potionMeta.emoji} ${escapeHtml(potionMeta.name)}` : 'No potion'}
+        </button>
+      </div>
+      <div class="pile-row">
+        <button class="pile" type="button" data-act="show-pile" data-pile="draw">Draw ${combat.draw.length}</button>
+        <button class="pile" type="button" data-act="show-pile" data-pile="discard">Discard ${combat.discard.length}</button>
+        <button class="pile" type="button" data-act="show-pile" data-pile="exhaust">Exhaust ${combat.exhaustPile.length}</button>
+        <button class="btn end-turn" type="button" data-act="end-turn" ${pending || combat.over ? 'disabled' : ''}>End turn</button>
+      </div>
+      <div class="combat-hand">${hand || '<p class="empty-hand">Hand empty</p>'}</div>
+      ${renderLog(combat.log)}
+    </section>
+  `;
+}
+
+function playCardFace(card: CardInstance, opts: { act: string; selected: boolean; disabled: boolean }): string {
+  return cardFace(card, {
+    act: opts.act,
+    id: card.uid,
+    selected: opts.selected,
+    disabled: opts.disabled,
+    extra: '',
+  });
+}
+
+function cardFace(
+  card: CardInstance,
+  opts: { act?: string; id?: string; index?: number; selected?: boolean; disabled?: boolean; extra?: string },
+): string {
+  const def = getCard(card.defId);
+  if (!def) return '';
+  const cost = cardEnergy(card);
+  const tag = opts.act ? 'button' : 'article';
+  const attrs = [
+    opts.act ? `data-act="${opts.act}"` : '',
+    opts.id ? `data-id="${escapeHtml(opts.id)}"` : '',
+    opts.index != null ? `data-index="${opts.index}"` : '',
+    opts.disabled ? 'disabled' : '',
+    tag === 'button' ? 'type="button"' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const cls = [
+    'pcard',
+    `r-${def.rarity}`,
+    `t-${def.type}`,
+    opts.selected ? 'is-selected' : '',
+    opts.disabled ? 'is-disabled' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return `
+    <${tag} class="${cls}" ${attrs}>
+      <span class="pcard-cost">${cost}</span>
+      <span class="pcard-emoji">${def.emoji}</span>
+      <span class="pcard-name">${escapeHtml(cardName(card))}</span>
+      <span class="pcard-type">${typeLabel(def.type)}</span>
+      <span class="pcard-text">${escapeHtml(cardText(card))}</span>
+      ${opts.extra ?? ''}
+    </${tag}>
+  `;
+}
+
+function previewCard(defId: string, opts: { act?: string; id?: string; index?: number; disabled?: boolean; extra?: string }): string {
+  return cardFace({ uid: defId, defId, upgraded: false }, opts);
+}
+
+function renderReward(s: RunState): string {
+  const reward = s.reward!;
+  const relic = reward.relicId ? getRelic(reward.relicId) : null;
+  const cards = reward.cardDone
+    ? ''
+    : reward.cards
+        .map((id) => previewCard(id, { act: 'take-card', id, extra: '<span class="pcard-price">Take</span>' }))
+        .join('');
+  return `
+    <section class="panel">
+      <header>
+        <div>
+          <h2>Victory</h2>
+          <p>+${reward.gold} gold${relic ? ` · ${relic.emoji} ${escapeHtml(relic.name)}` : ''}</p>
+        </div>
+      </header>
+      ${relic ? `<p class="card-note">${escapeHtml(relic.description)}</p>` : ''}
+      ${
+        reward.cardDone
+          ? '<p>Card reward settled.</p>'
+          : `<div class="card-row">${cards}</div>
+             <div class="row-actions"><button class="btn secondary" type="button" data-act="skip-reward">Skip card</button></div>`
+      }
+      ${
+        reward.cardDone
+          ? '<div class="row-actions"><button class="btn" type="button" data-act="leave-reward">Onward</button></div>'
+          : ''
+      }
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function renderRest(s: RunState): string {
+  const heal = Math.floor(s.maxHp * 0.3);
+  const upgradeable = s.deck.some(canUpgrade);
+  return `
+    <section class="panel">
+      <header>
+        <div>
+          <h2>Rest</h2>
+          <p>One choice. Then the yard continues.</p>
+        </div>
+      </header>
+      ${
+        s.picker === 'upgrade'
+          ? renderPicker(s, 'upgrade')
+          : `<div class="row-actions">
+              <button class="btn" type="button" data-act="rest-heal">Heal ${heal} HP</button>
+              <button class="btn secondary" type="button" data-act="rest-upgrade" ${upgradeable ? '' : 'disabled'}>Upgrade a card</button>
+            </div>`
+      }
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function renderPicker(s: RunState, mode: 'upgrade' | 'remove'): string {
+  const cards = s.deck
+    .filter((card) => (mode === 'upgrade' ? canUpgrade(card) : true))
+    .map((card) => cardFace(card, { act: mode, id: card.uid }))
+    .join('');
+  return `
+    <p>${mode === 'upgrade' ? 'Choose a card to upgrade.' : 'Choose a card to remove.'}</p>
+    <div class="card-row">${cards}</div>
+    <div class="row-actions"><button class="btn ghost" type="button" data-act="cancel-picker">Back</button></div>
+  `;
+}
+
+function renderShop(s: RunState): string {
+  const shop = s.shop!;
+  const cards = shop.cards
+    .map((slot, index) =>
+      previewCard(slot.item, {
+        act: slot.sold ? undefined : 'buy-card',
+        index,
+        disabled: slot.sold || s.gold < slot.price,
+        extra: `<span class="pcard-price">${slot.sold ? 'Sold' : `${slot.price}g`}</span>`,
+      }),
+    )
+    .join('');
+  const relics = shop.relics
+    .map((slot, index) => {
+      const relic = getRelic(slot.item);
+      if (!relic) return '';
+      const disabled = slot.sold || s.gold < slot.price;
+      return `
+        <button class="relic-card r-${relic.rarity}" type="button" data-act="buy-relic" data-index="${index}" ${disabled ? 'disabled' : ''}>
+          <span class="emoji">${relic.emoji}</span>
+          <strong>${escapeHtml(relic.name)}</strong>
+          <span>${escapeHtml(relic.description)}</span>
+          <em>${slot.sold ? 'Sold' : `${slot.price}g`}</em>
+        </button>
+      `;
+    })
+    .join('');
+  const potion = shop.potion;
+  const potionMeta = potion ? POTIONS[potion.item] : null;
+  return `
+    <section class="panel">
+      <header>
+        <div>
+          <h2>Shop</h2>
+          <p>🪙 ${s.gold} gold · one potion slot</p>
+        </div>
+      </header>
+      <div class="card-row">${cards}</div>
+      <div class="relic-shop">${relics}</div>
+      ${
+        potion && potionMeta
+          ? `<div class="row-actions">
+              <button class="btn secondary" type="button" data-act="buy-potion" ${potion.sold || s.potion || s.gold < potion.price ? 'disabled' : ''}>
+                ${potionMeta.emoji} ${escapeHtml(potionMeta.name)} · ${potion.sold ? 'Sold' : `${potion.price}g`}
+              </button>
+            </div>
+            <p class="card-note">${escapeHtml(potionMeta.text)}</p>`
+          : '<p class="card-note">Potion slot is full, so the counter skips it.</p>'
+      }
+      <div class="row-actions">
+        <button class="btn secondary" type="button" data-act="shop-remove-open" ${s.deck.length <= 1 || s.gold < shop.removePrice ? 'disabled' : ''}>
+          Remove a card · ${shop.removePrice}g
+        </button>
+        <button class="btn" type="button" data-act="leave-shop">Leave</button>
+      </div>
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function renderEvent(s: RunState): string {
+  if (s.picker === 'upgrade' || s.picker === 'remove') {
+    return `<section class="panel"><h2>${s.picker === 'upgrade' ? 'Upgrade' : 'Remove'}</h2>${renderPicker(s, s.picker)}</section>`;
+  }
+  const view = eventPresentation();
+  if (!view) return '<section class="panel"><p>The yard is quiet.</p></section>';
+  const choices = view.choices
+    .map((choice) => `<button class="btn" type="button" data-act="event-choice" data-id="${escapeHtml(choice.id)}">${escapeHtml(choice.label)}</button>`)
+    .join('');
+  return `
+    <section class="panel">
+      <header>
+        <div>
+          <div class="emoji">${view.emoji}</div>
+          <h2>${escapeHtml(view.title)}</h2>
+          <p>${escapeHtml(view.body)}</p>
+        </div>
+      </header>
+      <div class="row-actions stack">${choices}</div>
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function renderBossRelic(s: RunState): string {
+  const cards = s.relicChoices
+    .map((id) => {
+      const relic = getRelic(id);
+      if (!relic) return '';
+      return `
+        <button class="relic-card r-${relic.rarity}" type="button" data-act="boss-relic" data-id="${escapeHtml(id)}">
+          <span class="emoji">${relic.emoji}</span>
+          <strong>${escapeHtml(relic.name)}</strong>
+          <span>${escapeHtml(relic.description)}</span>
+        </button>
+      `;
+    })
+    .join('');
+  return `
+    <section class="panel">
+      <header>
+        <div>
+          <h2>Boss relic</h2>
+          <p>Take one. The next act will not wait.</p>
+        </div>
+      </header>
+      <div class="relic-shop">${cards}</div>
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function renderSheet(): string {
+  if (!sheet) return '';
+  const cards = sheet.cards
+    .map((card) =>
+      cardFace(card, {
+        act: sheet?.pick === 'shop-remove' ? 'shop-remove' : undefined,
+        id: card.uid,
+      }),
+    )
+    .join('');
+  return `
+    <div class="sheet-back">
+      <button class="sheet-dismiss" type="button" data-act="close-sheet" aria-label="Close"></button>
+      <div class="sheet-panel panel">
+        <header>
+          <h2>${escapeHtml(sheet.title)}</h2>
+          <button class="btn small ghost" type="button" data-act="close-sheet">Close</button>
+        </header>
+        <div class="card-row">${cards || '<p>Empty.</p>'}</div>
       </div>
     </div>
   `;
 }
 
-function renderLog(s: RunState): string {
-  if (!s.log.length) return '';
+function renderLog(lines: { text: string; tone?: string }[]): string {
+  if (!lines.length) return '';
   return `
-    <section class="log-panel" aria-label="Activity log">
-      <div class="log-heading">Activity log</div>
+    <section class="log-panel" aria-label="Combat log">
       <ul class="log">
-        ${s.log
-          .map((l) => `<li class="${l.tone ?? 'neutral'}">${escapeHtml(l.text)}</li>`)
+        ${lines
+          .slice(0, 6)
+          .map((line) => `<li class="${line.tone ?? 'neutral'}">${escapeHtml(line.text)}</li>`)
           .join('')}
       </ul>
     </section>
   `;
 }
 
-function renderPhase(s: RunState): string {
-  switch (s.phase) {
-    case 'intake':
-      return renderIntake(s);
-    case 'care':
-      return renderCare(s);
-    case 'adoption':
-      return renderAdoption(s);
-    case 'event':
-      return renderEvent(s);
-    case 'relic':
-      return renderRelic(s);
-    case 'summary':
-      return renderSummary(s);
-    default:
-      return '';
-  }
-}
-
-function petCard(pet: Pet, body: string): string {
-  const stressPct = (pet.stress / 3) * 100;
-  const traits = (Object.keys(TRAIT_LABELS) as (keyof typeof TRAIT_LABELS)[])
-    .filter((k) => pet.traits[k])
-    .map((k) => `<span class="tag ${k === 'specialNeeds' ? 'warn' : ''}">${TRAIT_LABELS[k]}</span>`)
-    .join('');
-  return `
-    <article class="card" data-pet="${pet.id}">
-      <div class="card-top">
-        <div>
-          <div class="emoji">${pet.emoji}</div>
-          <h3>${escapeHtml(pet.name)}</h3>
-          <div style="color:var(--muted);font-size:.9rem;font-weight:700">
-            ${pet.species} · ${pet.size} · ${pet.energy}
-          </div>
-        </div>
-        <div class="tag">Day ${pet.daysHeld}</div>
-      </div>
-      <div class="stress" title="Stress ${pet.stress}/3"><span style="width:${stressPct}%"></span></div>
-      <div class="tags">
-        ${!pet.fedToday ? '<span class="tag warn">Hungry</span>' : '<span class="tag good">Fed</span>'}
-        ${pet.treatBoost ? '<span class="tag good">Treat boost</span>' : ''}
-        ${isColonySpecies(pet.species) ? '<span class="tag">Habitat</span>' : ''}
-        ${traits || ''}
-      </div>
-      ${body}
-    </article>
-  `;
-}
-
-function renderIntake(s: RunState): string {
-  const incoming = s.intake.length
-    ? intakeClusters(s.intake)
-        .map((cluster) => {
-          const lead = cluster[0]!;
-          if (cluster.length === 1) {
-            const extra = extraKennelsNeeded(s.pets, cluster);
-            const fit =
-              extra === 0 && isColonySpecies(lead.species)
-                ? 'Fits habitat'
-                : extra === 1
-                  ? '1 kennel'
-                  : `${extra} kennels`;
-            return petCard(
-              lead,
-              `<p class="card-note">${fit}</p>
-              <div class="actions">
-                <button class="btn small" data-accept="${lead.id}">Take in</button>
-                <button class="btn small ghost" data-decline="${lead.id}">Pass</button>
-              </div>`,
-            );
-          }
-          const extra = extraKennelsNeeded(s.pets, cluster);
-          const kennelNote = extra === 0 ? 'Fits habitat' : `${extra} kennel${extra === 1 ? '' : 's'}`;
-          const names = cluster.map((p) => `${p.emoji} ${escapeHtml(p.name)}`).join(' · ');
-          return `
-            <article class="card colony-card">
-              <div class="card-top">
-                <div>
-                  <div class="emoji">${cluster.map((p) => p.emoji).join('')}</div>
-                  <h3>${lead.species} ×${cluster.length}</h3>
-                </div>
-                <div class="tag good">${cluster.length}/${COLONY_PER_KENNEL}</div>
-              </div>
-              <p class="card-note">${kennelNote}</p>
-              <div class="tags"><span class="tag">${names}</span></div>
-              <div class="actions">
-                <button class="btn small" data-accept="${lead.id}">Take group</button>
-                <button class="btn small ghost" data-decline="${lead.id}">Pass</button>
-              </div>
-            </article>`;
-        })
-        .join('')
-    : `<p style="color:var(--muted);margin:0">Empty queue</p>`;
-
-  const housed = s.pets.map((p) => petCard(p, habitatTag(s.pets, p.species) ? `<p class="card-note">${habitatTag(s.pets, p.species)}</p>` : '')).join('');
-
-  return `
-    <section class="panel">
-      <header>
-        <div>
-          <h2>Intake</h2>
-        </div>
-      </header>
-      <div class="grid intake">${incoming}</div>
-      <h3 style="margin:1rem 0 .5rem">Kennels</h3>
-      <div class="grid pets">${housed || '<p style="color:var(--muted)">Empty</p>'}</div>
-      <div class="row-actions">
-        <button class="btn" id="to-care">Care</button>
-      </div>
-    </section>
-  `;
-}
-
-function renderCare(s: RunState): string {
-  const cards = s.pets
-    .map((p) =>
-      petCard(
-        p,
-        `<div class="actions">
-          <button class="btn small ghost" data-care="feed" data-pet="${p.id}">Feed (1🥫)</button>
-          <button class="btn small ghost" data-care="play" data-pet="${p.id}">Play</button>
-          <button class="btn small ghost" data-care="train" data-pet="${p.id}">Train</button>
-          <button class="btn small ghost" data-care="treat" data-pet="${p.id}">Treat (2🥫)</button>
-        </div>`,
-      ),
-    )
-    .join('');
-
-  return `
-    <section class="panel">
-      <header>
-        <div>
-          <h2>Care</h2>
-          <p>⚡ ${s.energy} · 🥫 ${s.supplies}</p>
-        </div>
-      </header>
-      <div class="grid pets">${cards || '<p>No pets</p>'}</div>
-      <div class="row-actions">
-        <button class="btn" id="to-adopt">Match</button>
-      </div>
-    </section>
-  `;
-}
-
-function renderAdoption(s: RunState): string {
-  const petOptions = s.pets
-    .map((p) => `<option value="${p.id}">${p.emoji} ${p.name} (${p.species}${p.fedToday ? '' : ', hungry'}${p.treatBoost ? ', treat' : ''}, stress ${p.stress})</option>`)
-    .join('');
-
-  const cards = s.adopters
-    .map((a) => {
-      const prefs = formatPrefs(a);
-      const selected = a.matchedPetId ?? '';
-      const preview = selected ? previewMatch(a.id, selected) : null;
-      return `
-        <article class="card">
-          <div class="card-top">
-            <div>
-              <div class="emoji">${a.emoji}</div>
-              <h3>${escapeHtml(a.name)}</h3>
-              <div style="color:var(--muted);font-size:.9rem;font-weight:700">${a.prefs.home} home</div>
-            </div>
-            ${preview ? `<div class="grade ${preview.grade}">${preview.grade}</div>` : ''}
-          </div>
-          <div class="tags">${prefs}</div>
-          <div class="match-row">
-            <select data-adopter="${a.id}">
-              <option value="">— Choose a pet —</option>
-              ${petOptions}
-            </select>
-            ${selected ? `<button class="btn small ghost" data-clear="${a.id}">Clear</button>` : ''}
-          </div>
-        </article>
-      `;
-    })
-    .join('');
-
-  return `
-    <section class="panel">
-      <header>
-        <div>
-          <h2>Match</h2>
-        </div>
-      </header>
-      <div class="grid adopters">${cards}</div>
-      <div class="row-actions">
-        <button class="btn" id="finish-adopt">Close desk</button>
-      </div>
-    </section>
-  `;
-}
-
-function formatPrefs(a: Adopter): string {
+function statusChips(body: { block: number; strength: number; dexterity: number; weak: number; vulnerable: number; poison: number }): string {
   const bits: string[] = [];
-  if (a.prefs.species) bits.push(`<span class="tag">${a.prefs.species}</span>`);
-  if (a.prefs.size) bits.push(`<span class="tag">size ${a.prefs.size}</span>`);
-  if (a.prefs.energy) bits.push(`<span class="tag">${a.prefs.energy}</span>`);
-  for (const k of a.prefs.must) bits.push(`<span class="tag good">must: ${TRAIT_LABELS[k]}</span>`);
-  for (const k of a.prefs.nice) bits.push(`<span class="tag">nice: ${TRAIT_LABELS[k]}</span>`);
-  for (const k of a.prefs.dealbreakers) bits.push(`<span class="tag warn">no ${TRAIT_LABELS[k]}</span>`);
-  return bits.join('') || '<span class="tag">Open-minded</span>';
+  if (body.block > 0) bits.push(`🛡️ ${body.block}`);
+  if (body.strength) bits.push(`💪 ${body.strength}`);
+  if (body.dexterity) bits.push(`Dex ${body.dexterity}`);
+  if (body.weak) bits.push(`Weak ${body.weak}`);
+  if (body.vulnerable) bits.push(`Vuln ${body.vulnerable}`);
+  if (body.poison) bits.push(`☠️ ${body.poison}`);
+  return bits.map((bit) => `<span class="chip">${bit}</span>`).join('');
 }
 
-function renderEvent(s: RunState): string {
-  const e = s.pendingEvent!;
-  return `
-    <section class="panel">
-      <header>
-        <div>
-          <h2>${e.emoji} ${escapeHtml(e.title)}</h2>
-          <p>${escapeHtml(e.body)}</p>
-        </div>
-      </header>
-      <div class="row-actions">
-        ${e.choices
-          .map((c) => `<button class="btn ${c.id === e.choices[0]?.id ? '' : 'ghost'}" data-event="${c.id}">${escapeHtml(c.label)}</button>`)
-          .join('')}
-      </div>
-    </section>
-  `;
+function typeLabel(type: string): string {
+  if (type === 'attack') return 'Attack';
+  if (type === 'skill') return 'Skill';
+  if (type === 'power') return 'Power';
+  return 'Curse';
 }
 
-function renderRelic(s: RunState): string {
-  const cards = s.pendingRelics
-    .map(
-      (r) => `
-      <article class="card">
-        <div class="emoji">${r.emoji}</div>
-        <h3>${escapeHtml(r.name)}</h3>
-        <p style="margin:0;color:var(--muted)">${escapeHtml(r.description)}</p>
-        <button class="btn small" data-relic="${r.id}">Take</button>
-      </article>`,
-    )
-    .join('');
-  return `
-    <section class="panel">
-      <header>
-        <div>
-          <h2>Upgrade</h2>
-        </div>
-      </header>
-      <div class="grid pets">${cards}</div>
-      <div class="row-actions">
-        <button class="btn ghost" id="skip-relic">Skip</button>
-      </div>
-    </section>
-  `;
-}
-
-function renderSummary(s: RunState): string {
-  const relics = s.relics.map((r) => `<span class="tag">${r.emoji} ${escapeHtml(r.name)}</span>`).join('') || '<span class="tag">None yet</span>';
-  const blurb = s.endless
-    ? `${s.adoptions} homes · ${s.reputation} rep`
-    : `Need 6 homes + 40 rep · now ${s.adoptions} / ${s.reputation}`;
-  const nextLabel = s.endless ? 'Next day' : s.day >= s.maxDays ? 'Results' : 'Next day';
-  const cost = restockCost();
-  return `
-    <section class="panel">
-      <header>
-        <div>
-          <h2>Day ${s.day}${s.endless ? ' · Endless' : ''}</h2>
-          <p>${blurb}</p>
-        </div>
-      </header>
-      <div class="tags">${relics}</div>
-      <p style="color:var(--muted);margin:0.85rem 0 0;font-weight:700">🥫 ${s.supplies} · 🪙 ${s.gold}</p>
-      <div class="row-actions">
-        <button class="btn ghost" id="buy-food" ${s.gold < cost ? 'disabled' : ''}>+3 food (${cost}🪙)</button>
-        <button class="btn" id="next-day">${nextLabel}</button>
-        ${s.endless ? '<button class="btn ghost" id="retire-endless">Retire</button>' : ''}
-      </div>
-    </section>
-  `;
-}
-
-function bindPhase(s: RunState): void {
-  document.getElementById('save-now')?.addEventListener('click', () => saveCheckpoint());
-  document.getElementById('goto-login')?.addEventListener('click', () => nudgeLoginToSave());
-
-  if (s.phase === 'intake') {
-    app.querySelectorAll<HTMLButtonElement>('[data-accept]').forEach((btn) => {
-      btn.addEventListener('click', () => acceptIntake(btn.dataset.accept!));
-    });
-    app.querySelectorAll<HTMLButtonElement>('[data-decline]').forEach((btn) => {
-      btn.addEventListener('click', () => declineIntake(btn.dataset.decline!));
-    });
-    document.getElementById('to-care')?.addEventListener('click', () => finishIntake());
-  }
-
-  if (s.phase === 'care') {
-    app.querySelectorAll<HTMLButtonElement>('[data-care]').forEach((btn) => {
-      btn.addEventListener('click', () => doCare(btn.dataset.pet!, btn.dataset.care as CareAction));
-    });
-    document.getElementById('to-adopt')?.addEventListener('click', () => finishCare());
-  }
-
-  if (s.phase === 'adoption') {
-    app.querySelectorAll<HTMLSelectElement>('select[data-adopter]').forEach((sel) => {
-      const adopterId = sel.dataset.adopter!;
-      const adopter = s.adopters.find((a) => a.id === adopterId);
-      if (adopter?.matchedPetId) sel.value = adopter.matchedPetId;
-      sel.addEventListener('change', () => {
-        if (!sel.value) clearMatch(adopterId);
-        else assignMatch(adopterId, sel.value);
-      });
-    });
-    app.querySelectorAll<HTMLButtonElement>('[data-clear]').forEach((btn) => {
-      btn.addEventListener('click', () => clearMatch(btn.dataset.clear!));
-    });
-    document.getElementById('finish-adopt')?.addEventListener('click', () => finishAdoption());
-  }
-
-  if (s.phase === 'event') {
-    app.querySelectorAll<HTMLButtonElement>('[data-event]').forEach((btn) => {
-      btn.addEventListener('click', () => chooseEvent(btn.dataset.event!));
-    });
-  }
-
-  if (s.phase === 'relic') {
-    app.querySelectorAll<HTMLButtonElement>('[data-relic]').forEach((btn) => {
-      btn.addEventListener('click', () => pickRelic(btn.dataset.relic!));
-    });
-    document.getElementById('skip-relic')?.addEventListener('click', () => skipRelic());
-  }
-
-  if (s.phase === 'summary') {
-    document.getElementById('buy-food')?.addEventListener('click', () => buySupplies());
-    document.getElementById('next-day')?.addEventListener('click', () => advanceDay());
-    document.getElementById('retire-endless')?.addEventListener('click', () => {
-      if (confirm('Retire this endless run?')) retireEndless();
-    });
-  }
-}
-
-function escapeHtml(text: string): string {
-  return text
+function escapeHtml(value: string): string {
+  return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')

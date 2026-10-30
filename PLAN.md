@@ -1,135 +1,86 @@
-# Pawfect Shelter — Design Plan
+# Pawfect Shelter
 
-## Pitch
+A combat deckbuilder in the kennel. Pack Lead climbs three acts. Fights are turn-based: health, energy, block, draw and discard piles, and an enemy intent you can read before it lands.
 
-A cozy **roguelike shelter sim** where you run an animal shelter: take in pets under limited capacity, keep them healthy, and **match them to the right adopters**. Each run is one season. Survive rising pressure, grow your reputation, and send pets home.
+The playable game is **`web/`**. Unity files under `Assets/` are the old prototype and are not wired up.
 
-This replaces the old *Pawfect Defense* combat deck-builder (Unity assets remain under `Assets/` as legacy). The playable game lives in **`web/`**.
+## Combat
 
----
+Pack Lead starts at 72 HP, 3 energy, draw 5. Max energy and the turn-1 draw can change from relics and unlocks.
 
-## Why this shape (A + B)
+- Turn start clears your block (unless Bed Down is in play), refills energy, then draws. Poison on you ticks here, ignores block, then drops by 1.
+- Cards spend energy. End turn discards the hand and ticks your Weak and Vulnerable down by 1.
+- Each living enemy then performs the intent you already saw, and chooses the next one.
+- Block lasts through the enemy turn. It does not stack into your next turn unless Bed Down is up.
+- Damage per hit is `floor((base + Strength) * weak * vulnerable)`. Weak is 0.75. Vulnerable is 1.5. Strength applies to every hit of a multi-hit. Block gained is `base + Dexterity`.
+- Powers and Strength and Dexterity last the combat. Exhaust removes a card until the combat ends.
+- Curses are unplayable and sit in hand until the turn ends.
+- One enemy is the automatic target. Two or more: tap the card, then the enemy. Area cards skip targeting.
+- The attack number on an intent is the damage that will land, including Strength, Weak, and your Vulnerable, before your block.
+- Win the fight when every enemy hits 0. Lose the run at 0 HP.
 
-| Pillar | What it is | Why it belongs |
-|--------|------------|----------------|
-| **A — Matching** | Score pets ↔ adopters by traits, needs, dealbreakers | The fantasy: “the right home” |
-| **B — Shelter management** | Kennels, food, staff energy, stress, reputation | The stakes: overcrowding, burnout, bad press |
+## Pack Lead
 
-Matching without management is a puzzle with no pressure. Management without matching is a spreadsheet. Together they create a roguelike: every accept/reject and every placement reshapes the run.
+Starter relic **Warm Kennel**: heal 6 after each combat you win. Starter deck: 5 Nip (6, upgrade 9), 4 Brace (5 block, upgrade 8), 1 Bark (8 damage and 2 Vulnerable, upgrade 10 and 3).
 
----
+Drafts push the deck toward one of three lines. Cards can splash.
 
-## Platform choice (least work for you)
+**Strength / multi-hit.** Pack Leader, Bouncy Corgi, Howl, Rally the Kennel, Alpha Lunge.
 
-**Browser + Capacitor mobile shell (`web/`)** — not a Unity rewrite.
+**Block.** Guard Dog, Shepherd, Play Bow, Night Watch, Bed Down. Bed Down is the rare that stops block from expiring, and a deck can hold one.
 
-- Same TypeScript game for Safari, Home Screen PWA, and native iOS/Android
-- Tweak mechanics once in `web/src/game/`
-- See [`web/MOBILE.md`](web/MOBILE.md) for TestFlight / Xcode steps
-- Unity combat code stays as reference under `Assets/`
+**Vulnerable.** Herding Nudge, Clicker, Fence Run, Double Walk.
 
----
+**Utility.** Fetch, Shake, Treat. Flea is a curse with no play.
 
-## Core loop (one day)
+Upgrades change the printed number or the cost. Commons are the role-players, uncommons the enablers, rares the build keys. Later level unlocks add Flutter (a bird multi-hit) and Ferret Bite (poison) to the same reward pool. Cat and reptile leads are future characters, not this pass.
 
-```mermaid
-flowchart LR
-  morning[MorningIntake] --> care[CareActions]
-  care --> adopt[AdoptionHours]
-  adopt --> evening[EveningResolve]
-  evening --> nextDay[NextDayOrEnd]
-```
+## Enemies
 
-1. **Morning intake** — Strays / transfers arrive. Accept (uses a kennel) or turn away (small reputation cost). Overfilling is not allowed; full shelter forces hard choices.
-2. **Care** — Spend **staff energy** and **supplies** to Feed, Play, Train, or Treat. Low care → stress rises → harder matches and return risk.
-3. **Adoption hours** — Visitors arrive with preferences. You assign pets. Match quality drives money, reputation, and return chance.
-4. **Evening** — Stress ticks, random events resolve, day advances. Boss-style days (inspection, adoption fair) appear late in the run.
+Intents are cycles, so a turn has a right answer.
 
----
+Act 1 hallways are a Raccoon, a Stray, two Kits, or a Goose. Elites are the Control Van and the Coyote. The boss is The Warden (125 HP). At 60 HP the Warden gains 3 Strength and switches pattern.
 
-## Run structure (roguelike)
+Act 2 raises the same roles and adds an Officer pair and a Flea Swarm. The elite is the Pound Truck. The boss is Night Coyote, who gains Strength on a cycle and howls Weak at half health.
 
-- **Length:** 10 days (MVP). Later: acts / difficulty modifiers.
-- **Win:** Reach Day 10 with reputation ≥ 40 and ≥ 6 successful adoptions.
-- **Lose:** Reputation hits 0, or shelter collapses (all pets Critical stress while full).
-- **Procedural content:** Pets, adopters, and events reseed each run.
-- **Relics:** Permanent-for-the-run shelter upgrades (extra kennel, treat bowl, foster network, etc.), offered after strong days / events.
-- **Meta (later):** Unlock starting relics, kennel skins, pet species.
+Act 3 hallways are the Act 2 elites. The elite is the Warden's Squad. The final boss is the City Pound (200 HP). At 100 HP it calls a backup van and attacks twice.
 
----
+## The map
 
-## Data model (MVP)
+Three acts. Each act is 7 rows, up to 3 rooms wide, paths only to the same column or a neighbor, then one boss row.
 
-### Pet
-- Species: Dog | Cat | Rabbit | Bird
-- Size: S | M | L
-- Energy: Calm | Moderate | High
-- Traits: `kidFriendly`, `allergySafe`, `needsYard`, `trained`, `specialNeeds`
-- Stress: 0–3 (Calm → Anxious → Stressed → Critical)
-- Days in shelter (longer → slight stress creep)
+- Row 1 is always a normal fight.
+- Elites only on rows 4–6.
+- A rest never links directly to another rest.
+- Each act has at least one shop, one rest, and one elite.
 
-### Adopter
-- Must-haves / nice-to-haves / dealbreakers (subset of pet traits + size/energy)
-- Patience (affects “stretch” match tolerance)
-- Home: Apartment | House | Farm
+Hallway rewards are 3 cards (skip allowed) and 10–20 gold. Elites grant a relic, a card, and 25–35 gold. Bosses offer 3 relics and heal 30% of max HP.
 
-### Shelter
-- Kennels (capacity), Supplies, Staff energy/day, Reputation (0–100), Gold
-- Relics list
-- Pets currently housed
+Rest is one choice: heal 30% of max HP, or upgrade one card. The shop sells 5 cards (50 / 75 / 150 by rarity), a remove for 75 gold, 2 relics, and a potion if the slot is empty. You hold one potion: Block 12, deal 12, 2 Strength this combat, or heal 10.
 
-### Match grades
-| Grade | Effect |
-|-------|--------|
-| Perfect | +rep, +gold, never returns |
-| Good | +rep, +gold |
-| Stretch | small +gold; chance of return next day |
-| Bad | refused or instant return + reputation hit |
+Starting gold is 99.
 
----
+Relics are simple triggers: Warm Kennel, Treat Bowl, Old Collar, Whistle, Collar Bell, Pantry, Leash, Spare Leash, Carrier, Clicker Charm, Blanket, and the boss relic Warden's Badge.
 
-## Events (examples)
+Events are trades: Donation jar, Training yard, Fence stray, Sleepover, Storm, Treat pile.
 
-- **Donation Drive** — +supplies / gold
-- **Mystery Illness** — pick a pet to Treat or lose reputation
-- **City Inspection** — if any Critical stress pets, big rep hit; else relic offer
-- **Viral Post** — next day’s adopters are pickier but pay more
-- **Foster Offer** — free one kennel for 2 days (relic-like)
+## Code
 
----
+Combat state is data, separate from the DOM, so a fight can be stepped without the page.
 
-## What we keep from the old project
+- `web/src/game/combat.ts` — piles, energy, block, the damage formula, powers, exhaust, potions
+- `web/src/game/cards.ts` — the card list. Every printed line resolves
+- `web/src/game/encounters.ts` — enemies and act tables
+- `web/src/game/map.ts` — act generation
+- `web/src/game/relics.ts` — relic defs
+- `web/src/game/game.ts` — the run: map, reward, shop, rest, event, boss relic, defeat, victory
 
-- Cozy pet fantasy, breed personality, relic naming vibes
-- Run → procedural days → rewards → meta progression spine
-- iOS-friendly portrait UX ideas for a later Unity/mobile port
+Save version is 2. An in-progress shelter-sim run cannot continue. Profile, XP, and unlocks stay. `web/scripts/combat-check.ts` walks the formula, Bed Down, Flea, and the map rules.
 
-## What we drop (for now)
-
-- Turn-based combat, energy-for-attacks, Animal Control enemies
-- Card hand / deck piles as the primary verb
-- Unity scene pipeline as the daily driver
-
----
-
-## Implementation status
-
-| Area | Status |
-|------|--------|
-| GDD (this doc) | Done |
-| Web MVP loop | In `web/` |
-| Art / audio | CSS + emoji placeholders (replaceable) |
-| Meta progression | Stub / later |
-| Unity port | Out of scope until loop is fun |
-
----
-
-## How to play (dev)
+## How to run
 
 ```bash
 cd web
 npm install
 npm run dev
 ```
-
-Open the printed local URL. Start a run from the title screen.
