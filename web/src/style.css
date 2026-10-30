@@ -230,15 +230,53 @@ h3 {
 }
 
 .account-drawer .profile-field input,
-.account-drawer .restore-box {
+.account-drawer .restore-line {
   background: #ffffff;
   color: var(--ink);
   border-color: rgba(20, 48, 41, 0.14);
 }
 
 .account-drawer .profile-field input::placeholder,
-.account-drawer .restore-box::placeholder {
+.account-drawer .restore-line::placeholder {
   color: rgba(20, 48, 41, 0.4);
+}
+
+.restore-fold {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(20, 48, 41, 0.1);
+}
+
+.restore-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--muted);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.restore-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.restore-fold[open] > summary {
+  margin-bottom: 0.45rem;
+  color: var(--ink);
+}
+
+.restore-line {
+  width: 100%;
+  border: 1px solid rgba(20, 48, 41, 0.14);
+  background: #ffffff;
+  color: var(--ink);
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.8rem;
+  min-height: 44px;
+  font: inherit;
+  font-size: 0.82rem;
 }
 
 .account-drawer .btn.secondary {
@@ -575,18 +613,6 @@ h3 {
   color: var(--accent-ink);
 }
 
-.restore-box {
-  width: 100%;
-  min-height: 4.5rem;
-  border: 1px solid rgba(20, 48, 41, 0.14);
-  background: #ffffff;
-  color: var(--ink);
-  border-radius: 0.8rem;
-  padding: 0.7rem 0.8rem;
-  font: inherit;
-  font-size: 0.82rem;
-  resize: vertical;
-}
 
 .card-note {
   margin: 0;

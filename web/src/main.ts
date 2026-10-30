@@ -162,23 +162,28 @@ function renderTitle(): string {
                  <input id="player-name" type="text" maxlength="24" placeholder="Manager"
                    value="${escapeHtml(profile.name)}" autocomplete="nickname" />
                </label>
-               ${
-                 hasBackupPassword()
-                   ? ''
-                   : `<label class="profile-field">
-                        <span>Password</span>
-                        <input id="unlock-pass" type="password" autocomplete="current-password" />
-                      </label>
-                      <div class="row-actions" style="margin-top:.45rem">
-                        <button class="btn small secondary" id="unlock-backup" type="button">Unlock</button>
-                      </div>`
-               }
                <div class="row-actions" style="margin-top:.55rem">
-                 <button class="btn small" id="copy-restore" type="button">Copy code</button>
                  <button class="btn small secondary" id="logout" type="button">Log out</button>
                </div>
-               <textarea id="restore-out" class="restore-box" readonly hidden></textarea>`
-            : `<p class="account-hint">Username + password. No email. Keeps XP and Continue on this phone.</p>
+               <details class="restore-fold">
+                 <summary>Backup for another phone</summary>
+                 ${
+                   hasBackupPassword()
+                     ? ''
+                     : `<label class="profile-field">
+                          <span>Password</span>
+                          <input id="unlock-pass" type="password" autocomplete="current-password" />
+                        </label>
+                        <div class="row-actions" style="margin-top:.45rem">
+                          <button class="btn small secondary" id="unlock-backup" type="button">Unlock</button>
+                        </div>`
+                 }
+                 <div class="row-actions" style="margin-top:.45rem">
+                   <button class="btn small" id="copy-restore" type="button">Copy backup</button>
+                 </div>
+                 <input id="restore-out" class="restore-line" type="text" readonly hidden />
+               </details>`
+            : `<p class="account-hint">Username + password. No email.</p>
                <label class="profile-field">
                  <span>Username</span>
                  <input id="acct-user" type="text" maxlength="20" autocomplete="username" />
@@ -192,17 +197,20 @@ function renderTitle(): string {
                  <button class="btn small secondary" id="acct-login" type="button">Log in</button>
                </div>
                ${onDevice.length ? `<div class="profile-stats" style="margin-top:.5rem">${onDevice.map((n) => `<span>@${escapeHtml(n)}</span>`).join('')}</div>` : ''}
-               <label class="profile-field" style="margin-top:.75rem">
-                 <span>Restore code</span>
-                 <textarea id="restore-in" class="restore-box" placeholder="PFS1...."></textarea>
-               </label>
-               <label class="profile-field">
-                 <span>Password</span>
-                 <input id="restore-pass" type="password" autocomplete="current-password" />
-               </label>
-               <div class="row-actions" style="margin-top:.45rem">
-                 <button class="btn small secondary" id="acct-restore" type="button">Restore</button>
-               </div>
+               <details class="restore-fold">
+                 <summary>Have a backup?</summary>
+                 <label class="profile-field">
+                   <span>Paste backup</span>
+                   <input id="restore-in" class="restore-line" type="text" placeholder="PFS1...." autocomplete="off" />
+                 </label>
+                 <label class="profile-field">
+                   <span>Password</span>
+                   <input id="restore-pass" type="password" autocomplete="current-password" />
+                 </label>
+                 <div class="row-actions" style="margin-top:.45rem">
+                   <button class="btn small secondary" id="acct-restore" type="button">Restore</button>
+                 </div>
+               </details>
                <input id="player-name" type="hidden" value="${escapeHtml(profile.name)}" />`
         }
       </details>
@@ -250,19 +258,20 @@ function bindTitle(): void {
   });
   document.getElementById('copy-restore')?.addEventListener('click', async () => {
     const code = copyRestoreCode();
-    const box = document.getElementById('restore-out') as HTMLTextAreaElement | null;
+    const box = document.getElementById('restore-out') as HTMLInputElement | null;
     if (!code || !box) return;
     box.hidden = false;
     box.value = code;
+    box.focus();
     box.select();
     try {
       await navigator.clipboard.writeText(code);
     } catch {
-      /* user can copy from the box */
+      /* user can copy from the field */
     }
   });
   document.getElementById('acct-restore')?.addEventListener('click', () => {
-    const code = (document.getElementById('restore-in') as HTMLTextAreaElement | null)?.value || '';
+    const code = (document.getElementById('restore-in') as HTMLInputElement | null)?.value || '';
     const pass = (document.getElementById('restore-pass') as HTMLInputElement | null)?.value || '';
     void restoreShelterAccount(code, pass);
   });
