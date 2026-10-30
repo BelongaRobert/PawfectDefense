@@ -1,5 +1,3 @@
-import type { Species } from './types';
-
 export type UnlockId =
   | 'species_rabbit'
   | 'species_bird'
@@ -19,8 +17,7 @@ export interface UnlockDef {
   name: string;
   description: string;
   emoji: string;
-  kind: 'species' | 'bonus';
-  species?: Species;
+  kind: 'card' | 'bonus';
 }
 
 /** Shelter level thresholds (cumulative XP to reach that level). */
@@ -30,85 +27,80 @@ export const UNLOCKS: UnlockDef[] = [
   {
     id: 'species_rabbit',
     level: 2,
-    name: 'Rabbits',
-    description: 'Rabbits can arrive at intake.',
-    emoji: '🐇',
-    kind: 'species',
-    species: 'rabbit',
+    name: 'Treat',
+    description: 'Start each run with a Treat in your deck.',
+    emoji: '🦴',
+    kind: 'card',
   },
   {
     id: 'start_supplies',
     level: 2,
     name: 'Stocked Pantry',
-    description: 'Start each season with +3 supplies.',
+    description: 'Start each run with +15 gold.',
     emoji: '🥫',
     kind: 'bonus',
   },
   {
     id: 'species_bird',
     level: 3,
-    name: 'Birds',
-    description: 'Birds can arrive at intake.',
-    emoji: '🦜',
-    kind: 'species',
-    species: 'bird',
+    name: 'Flutter',
+    description: 'A bird multi-hit card joins card rewards.',
+    emoji: '🐦',
+    kind: 'card',
   },
   {
     id: 'start_reputation',
     level: 3,
     name: 'Neighborhood Flyer',
-    description: 'Start each season with +5 reputation.',
+    description: 'Start each run with +6 max HP.',
     emoji: '💛',
     kind: 'bonus',
   },
   {
     id: 'species_chameleon',
     level: 4,
-    name: 'Chameleons',
-    description: 'Chameleons arrive in shared habitats — 4 per kennel, or a group of 3–4 uses one kennel.',
+    name: 'Quick Shed',
+    description: 'Removing a card in the shop costs 50 gold.',
     emoji: '🦎',
-    kind: 'species',
-    species: 'chameleon',
+    kind: 'bonus',
   },
   {
     id: 'start_gold',
     level: 4,
     name: 'Community Jar',
-    description: 'Start each season with +12 gold.',
+    description: 'Start each run with +12 gold.',
     emoji: '🪙',
     kind: 'bonus',
   },
   {
     id: 'species_hamster',
     level: 5,
-    name: 'Hamsters',
-    description: 'Hamsters share a habitat. Four fill one kennel; a bonded group of 3–4 counts as one kennel.',
+    name: 'Broth',
+    description: 'Start each run with a heal potion.',
     emoji: '🐹',
-    kind: 'species',
-    species: 'hamster',
+    kind: 'bonus',
   },
   {
     id: 'start_kennel',
     level: 6,
     name: 'Extra Kennel Permit',
-    description: 'Start each season with +1 kennel capacity.',
+    description: 'Start each run with +4 max HP.',
     emoji: '🏠',
     kind: 'bonus',
   },
   {
     id: 'species_ferret',
     level: 7,
-    name: 'Ferrets',
-    description: 'Ferrets share kennels like hamsters — not a whole kennel each unless a group of 3–4 arrives together.',
+    name: 'Ferret Bite',
+    description: 'A poison skill joins card rewards.',
     emoji: '🦡',
-    kind: 'species',
-    species: 'ferret',
+    kind: 'card',
   },
   {
     id: 'start_energy',
     level: 8,
     name: 'Volunteer Roster',
-    description: 'Start each season with +1 max staff energy.',
+    description: 'Gain +1 energy on turn 1 of each combat.',
     emoji: '⚡',
     kind: 'bonus',
   },
@@ -116,13 +108,11 @@ export const UNLOCKS: UnlockDef[] = [
     id: 'morning_delivery',
     level: 9,
     name: 'Morning Delivery',
-    description: '+1 food delivered each morning of a season.',
+    description: 'Heal 3 HP at the start of each combat.',
     emoji: '📦',
     kind: 'bonus',
   },
 ];
-
-export const STARTER_SPECIES: Species[] = ['dog', 'cat'];
 
 export function levelFromXp(xp: number): number {
   let level = 1;
@@ -173,15 +163,6 @@ export function grantXp(profile: XpProfile, amount: number): UnlockDef[] {
   return unlocksForLevel(after).filter((u) => !had.has(u.id) && u.level > before);
 }
 
-export function unlockedSpecies(unlocks: string[] = []): Species[] {
-  const set = new Set<Species>(STARTER_SPECIES);
-  for (const id of unlocks) {
-    const def = UNLOCKS.find((u) => u.id === id);
-    if (def?.species) set.add(def.species);
-  }
-  return [...set];
-}
-
 export function hasUnlock(unlocks: string[] = [], id: UnlockId): boolean {
   return unlocks.includes(id);
 }
@@ -193,25 +174,17 @@ export interface XpBreakdown {
 
 export function computeRunXp(input: {
   won: boolean;
-  adoptions: number;
-  day: number;
-  maxDays: number;
-  endless: boolean;
-  reputation: number;
+  act: number;
+  floors: number;
+  elitesWon: number;
 }): XpBreakdown {
   const parts: { label: string; amount: number }[] = [];
-  parts.push({ label: 'Season finished', amount: 35 });
-  if (input.won) parts.push({ label: 'Season victory', amount: 50 });
-  if (input.adoptions > 0) {
-    parts.push({ label: `${input.adoptions} adoptions`, amount: input.adoptions * 8 });
-  }
-  const daysPastMid = Math.max(0, Math.min(input.day, input.maxDays) - 5);
-  if (daysPastMid > 0) parts.push({ label: 'Late-season days', amount: daysPastMid * 4 });
-  if (input.endless && input.day > input.maxDays) {
-    const extra = input.day - input.maxDays;
-    parts.push({ label: `Endless (+${extra} days)`, amount: extra * 6 });
-  }
-  if (input.reputation >= 70) parts.push({ label: 'High reputation', amount: 15 });
+  parts.push({ label: 'Run finished', amount: 25 });
+  if (input.floors > 0) parts.push({ label: 'Rooms cleared', amount: input.floors * 3 });
+  if (input.elitesWon > 0) parts.push({ label: 'Elites', amount: input.elitesWon * 12 });
+  if (input.act >= 2) parts.push({ label: 'Reached Act 2', amount: 20 });
+  if (input.act >= 3) parts.push({ label: 'Reached Act 3', amount: 25 });
+  if (input.won) parts.push({ label: 'Victory', amount: 70 });
   const total = parts.reduce((s, p) => s + p.amount, 0);
   return { total, parts };
 }
