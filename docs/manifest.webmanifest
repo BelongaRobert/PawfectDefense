@@ -1,7 +1,7 @@
 {
   "name": "Pawfect Shelter",
   "short_name": "Pawfect",
-  "description": "Cozy pet adoption roguelike — run a shelter and match pets to homes.",
+  "description": "A kennel deckbuilder. Spend energy, block the telegraphed hit, and draft a pack.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
