@@ -1,4 +1,19 @@
 import './style.css';
+import fieldUrl from './assets/combat/field.webp';
+import leadUrl from './assets/combat/lead.webp';
+import raccoonUrl from './assets/combat/raccoon.webp';
+import strayUrl from './assets/combat/stray.webp';
+import kitUrl from './assets/combat/kit.webp';
+import gooseUrl from './assets/combat/goose.webp';
+import coyoteUrl from './assets/combat/coyote.webp';
+import nightUrl from './assets/combat/night.webp';
+import vanUrl from './assets/combat/van.webp';
+import truckUrl from './assets/combat/truck.webp';
+import wardenUrl from './assets/combat/warden.webp';
+import officerUrl from './assets/combat/officer.webp';
+import fleasUrl from './assets/combat/fleas.webp';
+import poundUrl from './assets/combat/pound.webp';
+import captainUrl from './assets/combat/captain.webp';
 import { initNativeShell } from './native';
 import { cardName, cardText, getCard } from './game/cards';
 import { intentView } from './game/combat';
@@ -63,6 +78,44 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 /** Pile and shop-remove sheets are UI-only. They are not part of the save. */
 let sheet: { title: string; cards: CardInstance[]; pick: 'shop-remove' | null } | null = null;
+
+const ENEMY_ART: Record<string, string> = {
+  raccoon: raccoonUrl,
+  raccoon2: raccoonUrl,
+  stray: strayUrl,
+  stray2: strayUrl,
+  kit: kitUrl,
+  kit2: kitUrl,
+  goose: gooseUrl,
+  goose2: gooseUrl,
+  van: vanUrl,
+  van2: vanUrl,
+  pound_van: vanUrl,
+  coyote: coyoteUrl,
+  coyote2: coyoteUrl,
+  night: nightUrl,
+  warden: wardenUrl,
+  officer: officerUrl,
+  officer_b: officerUrl,
+  rookie: officerUrl,
+  captain: captainUrl,
+  fleas: fleasUrl,
+  truck: truckUrl,
+  pound: poundUrl,
+};
+
+interface CombatSnap {
+  turn: number;
+  playerHp: number;
+  playerBlock: number;
+  energy: number;
+  hand: string[];
+  logTop: string;
+  enemies: Record<string, { hp: number; block: number }>;
+}
+
+/** Previous combat frame, so a re-render can shake the fighter that just got hit. */
+let lastSnap: CombatSnap | null = null;
 
 bootToTitle();
 subscribe(() => {
@@ -145,7 +198,21 @@ function render(): void {
     return;
   }
   if (s.phase === 'victory' || s.phase === 'ended') {
+    lastSnap = null;
     app.innerHTML = renderEnded(s);
+    return;
+  }
+
+  if (s.phase !== 'combat') lastSnap = null;
+  if (
+    s.phase === 'combat' &&
+    s.combat &&
+    !sheet &&
+    !app.querySelector('.sheet-back') &&
+    app.querySelector('.combat[data-live]')
+  ) {
+    syncHud(s);
+    syncCombat(s.combat);
     return;
   }
 
@@ -156,6 +223,7 @@ function render(): void {
       ${renderSheet()}
     </div>
   `;
+  if (s.phase === 'combat' && s.combat) lastSnap = takeSnap(s.combat);
 }
 
 function renderTitle(): string {
@@ -501,42 +569,303 @@ function mapNode(s: RunState, node: MapNode): string {
   `;
 }
 
-function renderCombat(combat: CombatState): string {
+function enemyArt(defId: string): string {
+  return ENEMY_ART[defId] ?? raccoonUrl;
+}
+
+function takeSnap(combat: CombatState): CombatSnap {
+  const enemies: CombatSnap['enemies'] = {};
+  for (const enemy of combat.enemies) enemies[enemy.uid] = { hp: enemy.hp, block: enemy.block };
+  return {
+    turn: combat.turn,
+    playerHp: combat.player.hp,
+    playerBlock: combat.player.block,
+    energy: combat.player.energy,
+    hand: combat.hand.map((card) => card.uid),
+    logTop: combat.log[0]?.text ?? '',
+    enemies,
+  };
+}
+
+function freshLines(log: { text: string }[], top: string): { text: string }[] {
+  const out: { text: string }[] = [];
+  for (const line of log) {
+    if (line.text === top) break;
+    out.push(line);
+  }
+  return out;
+}
+
+function nameStarts(text: string, names: string[], suffix: string): string | null {
+  const ordered = [...names].sort((a, b) => b.length - a.length);
+  for (const name of ordered) {
+    if (text.startsWith(`${name}${suffix}`)) return name;
+  }
+  return null;
+}
+
+function motionOk(): boolean {
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function kick(el: HTMLElement, cls: string): void {
+  if (!motionOk()) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  window.setTimeout(() => el.classList.remove(cls), 720);
+}
+
+function floatNum(el: HTMLElement, text: string, kind: 'hurt' | 'block'): void {
+  const span = document.createElement('span');
+  span.className = `dmg-float ${kind}`;
+  span.textContent = text;
+  el.appendChild(span);
+  window.setTimeout(() => span.remove(), 900);
+}
+
+function promptText(combat: CombatState): string {
   const pending = combat.pending;
-  const prompt =
-    pending?.type === 'target'
-      ? 'Choose an enemy. Tap the card again to cancel.'
-      : pending?.type === 'potion'
-        ? 'Choose an enemy for the potion.'
-        : pending?.type === 'exhaust'
-          ? 'Exhaust a card from your hand.'
-          : combat.doubleNextAttack
-            ? 'Your next Attack plays twice.'
-            : '';
-  const enemies = combat.enemies
-    .map((enemy) => {
-      const alive = enemy.hp > 0;
-      const intent = alive ? intentView(enemy, combat.player) : null;
-      const pct = Math.max(0, Math.min(100, Math.round((enemy.hp / enemy.maxHp) * 100)));
-      const aiming = alive && (pending?.type === 'target' || pending?.type === 'potion');
-      return `
-        <article class="enemy ${alive ? '' : 'is-down'} ${aiming ? 'is-aim' : ''}">
-          <button class="enemy-hit" type="button" data-act="enemy" data-id="${escapeHtml(enemy.uid)}" ${aiming ? '' : 'disabled'}>
-            <div class="enemy-top">
-              <span class="emoji">${enemy.emoji}</span>
-              <div>
-                <h3>${escapeHtml(enemy.name)}</h3>
-                <div class="hpnum">${Math.max(0, enemy.hp)}/${enemy.maxHp}</div>
-              </div>
-            </div>
-            <div class="hpbar"><span style="width:${pct}%"></span></div>
-            ${intent ? `<div class="intent intent-${intent.tone}">${escapeHtml(intent.label)} <strong>${escapeHtml(intent.value)}</strong></div>` : '<div class="intent">Down</div>'}
-            <div class="chips">${statusChips(enemy)}</div>
-          </button>
-        </article>
-      `;
-    })
-    .join('');
+  if (pending?.type === 'target') return 'Choose an enemy. Tap the card again to cancel.';
+  if (pending?.type === 'potion') return 'Choose an enemy for the potion.';
+  if (pending?.type === 'exhaust') return 'Exhaust a card from your hand.';
+  if (combat.doubleNextAttack) return 'Your next Attack plays twice.';
+  return '';
+}
+
+function fighterEnemy(enemy: CombatState['enemies'][number], combat: CombatState, fx: string): string {
+  const alive = enemy.hp > 0;
+  const intent = alive ? intentView(enemy, combat.player) : null;
+  const pct = Math.max(0, Math.min(100, Math.round((enemy.hp / enemy.maxHp) * 100)));
+  const aiming = alive && (combat.pending?.type === 'target' || combat.pending?.type === 'potion');
+  const shade = enemy.defId.endsWith('2') || enemy.defId === 'pound_van' ? ' is-shade' : '';
+  return `
+    <button class="fighter ${fx} ${alive ? '' : 'is-down'} ${aiming ? 'is-aim' : ''}" type="button" data-act="enemy" data-id="${escapeHtml(enemy.uid)}" ${aiming ? '' : 'disabled'}>
+      ${
+        intent
+          ? `<div class="intent-bubble intent-${intent.tone}" data-intent="${escapeHtml(intent.label)} ${escapeHtml(intent.value)}"><span>${escapeHtml(intent.label)}</span><strong>${escapeHtml(intent.value)}</strong></div>`
+          : ''
+      }
+      <img class="sprite${shade}" src="${enemyArt(enemy.defId)}" alt="" draggable="false" />
+      <div class="plate">
+        <div class="plate-name">${escapeHtml(enemy.name)}</div>
+        <div class="hpnum">${Math.max(0, enemy.hp)}/${enemy.maxHp}</div>
+        <div class="hpbar"><span style="width:${pct}%"></span></div>
+        <div class="chips">${statusChips(enemy)}</div>
+      </div>
+    </button>
+  `;
+}
+
+function paintPlate(node: HTMLElement, hp: number, maxHp: number, chips: string, name: string): void {
+  const nameEl = node.querySelector('.plate-name');
+  if (nameEl) nameEl.textContent = name;
+  const hpEl = node.querySelector('.hpnum');
+  if (hpEl) hpEl.textContent = `${Math.max(0, hp)}/${maxHp}`;
+  const bar = node.querySelector<HTMLElement>('.hpbar > span');
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, Math.round((hp / maxHp) * 100)))}%`;
+  const chip = node.querySelector('.chips');
+  if (chip) chip.innerHTML = chips;
+}
+
+function paintEnemy(node: HTMLElement, enemy: CombatState['enemies'][number], combat: CombatState): void {
+  const alive = enemy.hp > 0;
+  const aiming = alive && (combat.pending?.type === 'target' || combat.pending?.type === 'potion');
+  node.classList.toggle('is-down', !alive);
+  node.classList.toggle('is-aim', aiming);
+  if (aiming) node.removeAttribute('disabled');
+  else node.setAttribute('disabled', '');
+  paintPlate(node, enemy.hp, enemy.maxHp, statusChips(enemy), enemy.name);
+  if (!alive) {
+    node.querySelector('.intent-bubble')?.remove();
+    return;
+  }
+  const intent = intentView(enemy, combat.player);
+  const key = `${intent.label} ${intent.value}`;
+  let bubble = node.querySelector<HTMLElement>('.intent-bubble');
+  if (!bubble) {
+    bubble = document.createElement('div');
+    node.prepend(bubble);
+  }
+  if (bubble.dataset.intent && bubble.dataset.intent !== key) kick(node, 'fx-intent');
+  bubble.dataset.intent = key;
+  bubble.className = `intent-bubble intent-${intent.tone}`;
+  bubble.innerHTML = `<span>${escapeHtml(intent.label)}</span><strong>${escapeHtml(intent.value)}</strong>`;
+}
+
+function updateCardButton(el: HTMLElement, card: CardInstance, combat: CombatState): void {
+  const pending = combat.pending;
+  let selected = false;
+  let disabled = false;
+  if (pending?.type === 'exhaust') el.dataset.act = 'exhaust';
+  else if (pending?.type === 'target') {
+    el.dataset.act = 'play';
+    selected = pending.cardUid === card.uid;
+    disabled = !selected;
+  } else if (pending?.type === 'potion') {
+    el.dataset.act = 'play';
+    disabled = true;
+  } else {
+    el.dataset.act = 'play';
+    disabled = !cardPlayable(combat, card);
+  }
+  el.classList.toggle('is-selected', selected);
+  el.classList.toggle('is-disabled', disabled);
+  if (disabled) el.setAttribute('disabled', '');
+  else el.removeAttribute('disabled');
+  const cost = el.querySelector('.pcard-cost');
+  if (cost) cost.textContent = String(cardEnergy(card));
+}
+
+function syncHand(root: Element, combat: CombatState, prev: CombatSnap | null, sameTurn: boolean): void {
+  const hand = root.querySelector('.combat-hand');
+  if (!hand) return;
+  const nextIds = new Set(combat.hand.map((card) => card.uid));
+  for (const el of [...hand.querySelectorAll<HTMLElement>('.pcard')]) {
+    const id = el.dataset.id || '';
+    if (nextIds.has(id)) continue;
+    if (sameTurn && motionOk() && !el.classList.contains('fx-played')) {
+      el.classList.add('fx-played');
+      el.setAttribute('disabled', '');
+      window.setTimeout(() => el.remove(), 320);
+    } else el.remove();
+  }
+  for (const card of combat.hand) {
+    const existing = hand.querySelector<HTMLElement>(`[data-id="${CSS.escape(card.uid)}"]`);
+    if (!existing || existing.classList.contains('fx-played')) {
+      const wrap = document.createElement('div');
+      const exhaust = combat.pending?.type === 'exhaust';
+      const selected = combat.pending?.type === 'target' && combat.pending.cardUid === card.uid;
+      wrap.innerHTML = playCardFace(card, {
+        act: exhaust ? 'exhaust' : 'play',
+        selected,
+        disabled: exhaust ? false : !selected && !cardPlayable(combat, card),
+      }).trim();
+      const el = wrap.firstElementChild as HTMLElement | null;
+      if (!el) continue;
+      if (prev && motionOk()) el.classList.add('fx-draw');
+      hand.appendChild(el);
+    } else {
+      updateCardButton(existing, card, combat);
+      hand.appendChild(existing);
+    }
+  }
+  const empty = hand.querySelector('.empty-hand');
+  const still = hand.querySelector('.pcard:not(.fx-played)');
+  if (!still && !empty) {
+    const note = document.createElement('p');
+    note.className = 'empty-hand';
+    note.textContent = 'Hand empty';
+    hand.appendChild(note);
+  } else if (still) empty?.remove();
+}
+
+function syncChrome(root: Element, combat: CombatState): void {
+  const prompt = root.querySelector<HTMLElement>('.combat-prompt');
+  const text = promptText(combat);
+  if (prompt) {
+    prompt.textContent = text;
+    prompt.hidden = !text;
+  }
+  const energy = root.querySelector('.energy');
+  if (energy) energy.innerHTML = `${combat.player.energy}<span>/${combat.player.maxEnergy}</span>`;
+  const potion = getState().potion;
+  const potionBtn = root.querySelector<HTMLButtonElement>('[data-act="potion"]');
+  if (potionBtn) {
+    const meta = potion ? POTIONS[potion] : null;
+    potionBtn.disabled = !meta || !!combat.pending;
+    potionBtn.className = `btn small ${meta ? '' : 'secondary'}`;
+    potionBtn.title = meta ? meta.text : 'No potion';
+    potionBtn.textContent = meta ? `${meta.emoji} ${meta.name}` : 'No potion';
+  }
+  const piles = root.querySelectorAll<HTMLButtonElement>('.pile');
+  const counts = [combat.draw.length, combat.discard.length, combat.exhaustPile.length];
+  const labels = ['Draw', 'Discard', 'Exhaust'];
+  piles.forEach((pile, index) => {
+    if (labels[index]) pile.textContent = `${labels[index]} ${counts[index] ?? 0}`;
+  });
+  const end = root.querySelector<HTMLButtonElement>('[data-act="end-turn"]');
+  if (end) end.disabled = !!combat.pending || combat.over;
+  const log = root.querySelector('.log');
+  if (log) {
+    log.innerHTML = combat.log
+      .slice(0, 6)
+      .map((line) => `<li class="${line.tone ?? 'neutral'}">${escapeHtml(line.text)}</li>`)
+      .join('');
+  }
+}
+
+function syncHud(s: RunState): void {
+  const meters = app.querySelectorAll('.meter');
+  const potion = s.potion ? POTIONS[s.potion] : null;
+  if (meters[0]) meters[0].textContent = `❤️ ${s.hp}/${s.maxHp}`;
+  if (meters[1]) meters[1].textContent = `🪙 ${s.gold}`;
+  if (meters[2]) meters[2].textContent = potion ? `${potion.emoji} ${potion.name}` : '🧪 —';
+  const deck = app.querySelector<HTMLElement>('[data-act="show-deck"]');
+  if (deck) deck.textContent = `Deck ${s.deck.length}`;
+}
+
+function syncCombat(combat: CombatState): void {
+  const root = app.querySelector('.combat');
+  if (!root) return;
+  const prev = lastSnap;
+  const fresh = prev ? freshLines(combat.log, prev.logTop) : [];
+  const sameTurn = !!prev && prev.turn === combat.turn;
+  const you = root.querySelector<HTMLElement>('[data-who="you"]');
+  if (you) {
+    if (prev && combat.player.hp < prev.playerHp) {
+      kick(you, 'fx-hurt');
+      floatNum(you, `-${prev.playerHp - combat.player.hp}`, 'hurt');
+      const field = root.querySelector<HTMLElement>('.field');
+      if (field) kick(field, 'fx-shake');
+    }
+    if (prev && combat.player.block > prev.playerBlock) {
+      kick(you, 'fx-block');
+      floatNum(you, `+${combat.player.block - prev.playerBlock}`, 'block');
+    }
+    if (sameTurn && prev && combat.player.energy < prev.energy) kick(you, 'fx-act');
+    paintPlate(you, combat.player.hp, combat.player.maxHp, statusChips(combat.player), 'Pack Lead');
+  }
+  const foes = root.querySelector('.foes');
+  if (foes) {
+    for (const enemy of combat.enemies) {
+      let node = foes.querySelector<HTMLElement>(`[data-id="${CSS.escape(enemy.uid)}"]`);
+      const born = !node;
+      if (!node) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = fighterEnemy(enemy, combat, 'fx-enter').trim();
+        node = wrap.firstElementChild as HTMLElement | null;
+        if (node) foes.appendChild(node);
+      }
+      if (!node) continue;
+      const before = prev?.enemies[enemy.uid];
+      if (before && !born) {
+        if (enemy.hp < before.hp) {
+          kick(node, 'fx-hurt');
+          floatNum(node, `-${before.hp - enemy.hp}`, 'hurt');
+        }
+        if (fresh.some((line) => nameStarts(line.text, [enemy.name], ' hits for'))) kick(node, 'fx-lunge');
+        if (enemy.block > before.block) {
+          kick(node, 'fx-block');
+          floatNum(node, `+${enemy.block - before.block}`, 'block');
+        }
+        if (enemy.hp <= 0 && before.hp > 0) kick(node, 'fx-faint');
+      }
+      paintEnemy(node, enemy, combat);
+    }
+    foes.className = `foes foes-${Math.min(3, Math.max(1, combat.enemies.length))}`;
+  }
+  syncHand(root, combat, prev, sameTurn);
+  syncChrome(root, combat);
+  lastSnap = takeSnap(combat);
+}
+
+function renderCombat(combat: CombatState): string {
+  const prompt = promptText(combat);
+  const pending = combat.pending;
+  const playerPct = Math.max(0, Math.min(100, Math.round((combat.player.hp / combat.player.maxHp) * 100)));
+  const enemies = combat.enemies.map((enemy) => fighterEnemy(enemy, combat, 'fx-enter')).join('');
+  const foeCount = Math.min(3, Math.max(1, combat.enemies.length));
 
   const hand = combat.hand
     .map((card) => {
@@ -551,18 +880,25 @@ function renderCombat(combat: CombatState): string {
 
   const potion = getState().potion;
   const potionMeta = potion ? POTIONS[potion] : null;
-  const playerPct = Math.max(0, Math.min(100, Math.round((combat.player.hp / combat.player.maxHp) * 100)));
 
   return `
-    <section class="combat" aria-label="Combat">
-      <div class="enemy-row">${enemies}</div>
-      ${prompt ? `<p class="combat-prompt">${escapeHtml(prompt)}</p>` : ''}
-      <div class="you-bar">
-        <div>
-          <div class="hpnum">You ${combat.player.hp}/${combat.player.maxHp}</div>
-          <div class="hpbar you"><span style="width:${playerPct}%"></span></div>
-          <div class="chips">${statusChips(combat.player)}</div>
+    <section class="combat" data-live="1" aria-label="Combat">
+      <div class="field" style="background-image:url('${fieldUrl}')">
+        <div class="lane">
+          <div class="fighter fighter-you fx-enter" data-who="you">
+            <img class="sprite" src="${leadUrl}" alt="" draggable="false" />
+            <div class="plate">
+              <div class="plate-name">Pack Lead</div>
+              <div class="hpnum">${combat.player.hp}/${combat.player.maxHp}</div>
+              <div class="hpbar you"><span style="width:${playerPct}%"></span></div>
+              <div class="chips">${statusChips(combat.player)}</div>
+            </div>
+          </div>
+          <div class="foes foes-${foeCount}">${enemies}</div>
         </div>
+      </div>
+      <p class="combat-prompt" ${prompt ? '' : 'hidden'}>${escapeHtml(prompt)}</p>
+      <div class="you-bar">
         <div class="energy" aria-label="Energy">${combat.player.energy}<span>/${combat.player.maxEnergy}</span></div>
         <button class="btn small ${potionMeta ? '' : 'secondary'}" type="button" data-act="potion" ${potionMeta && !pending ? '' : 'disabled'} title="${potionMeta ? escapeHtml(potionMeta.text) : 'No potion'}">
           ${potionMeta ? `${potionMeta.emoji} ${escapeHtml(potionMeta.name)}` : 'No potion'}

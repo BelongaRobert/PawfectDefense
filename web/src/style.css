@@ -905,44 +905,322 @@ h3 {
   min-height: calc(100dvh - 8.5rem);
 }
 
-.enemy-row {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-}
-
-.enemy {
-  flex: 1 1 9rem;
-  min-width: 8.5rem;
-}
-
-.enemy-hit {
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-radius: 1rem;
-  padding: 0.7rem 0.75rem 0.8rem;
-  background: var(--card);
-  color: var(--ink);
+.field {
+  position: relative;
+  min-height: 18.5rem;
+  border-radius: 1.15rem;
+  overflow: hidden;
+  background: #d7e2b8 center/cover no-repeat;
   box-shadow: var(--shadow);
 }
 
-.enemy.is-aim .enemy-hit {
-  outline: 3px solid var(--accent);
+.field.fx-shake {
+  animation: field-shake 0.42s ease;
 }
 
-.enemy.is-down {
-  opacity: 0.45;
-}
-
-.enemy-top {
+.lane {
+  position: absolute;
+  inset: auto 0 0;
   display: flex;
-  gap: 0.45rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 2.2rem 0.45rem 0.4rem;
+  background: linear-gradient(to top, rgba(48, 36, 16, 0.38), transparent 70%);
+}
+
+.foes {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.15rem;
+  flex: 1;
+}
+
+.fighter {
+  position: relative;
+  width: 7.4rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-.enemy-top h3 {
-  font-size: 1rem;
+.foes-2 .fighter {
+  width: 6.3rem;
+}
+
+.foes-3 .fighter {
+  width: 5.1rem;
+}
+
+.fighter .sprite {
+  width: 100%;
+  height: 8.4rem;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 10px 6px rgba(40, 28, 10, 0.38));
+  transform-origin: 50% 100%;
+  animation: bob 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.fighter-you .sprite {
+  animation-delay: -0.6s;
+}
+
+.sprite.is-shade {
+  filter: saturate(0.82) brightness(0.9) drop-shadow(0 10px 6px rgba(40, 28, 10, 0.38));
+}
+
+.foes-2 .sprite,
+.foes-3 .sprite {
+  height: 7.2rem;
+}
+
+.plate {
+  width: 100%;
+  margin-top: -0.45rem;
+  background: rgba(243, 251, 246, 0.94);
+  border-radius: 0.75rem;
+  padding: 0.18rem 0.35rem 0.28rem;
+  text-align: center;
+  box-shadow: 0 6px 14px rgba(20, 30, 16, 0.18);
+}
+
+.plate-name {
+  font-weight: 800;
+  font-size: 0.72rem;
+  line-height: 1.1;
+}
+
+.intent-bubble {
+  position: absolute;
+  top: 0.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px rgba(20, 24, 16, 0.2);
+}
+
+.intent-bubble strong {
+  font-size: 0.95rem;
+}
+
+.fighter.is-aim::before {
+  content: '';
+  position: absolute;
+  inset: 12% 8% 32%;
+  border: 3px solid var(--accent);
+  border-radius: 1rem;
+  box-shadow: 0 0 0 4px rgba(232, 165, 75, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.fighter.is-down .sprite {
+  animation: none;
+  opacity: 0.55;
+  filter: grayscale(0.85) drop-shadow(0 6px 4px rgba(40, 28, 10, 0.25));
+  transform: translateY(10px) rotate(-8deg);
+}
+
+.fighter.fx-hurt .sprite {
+  animation: hurt 0.45s ease;
+}
+
+.fighter.fx-lunge .sprite {
+  animation: lunge 0.42s ease;
+}
+
+.fighter-you.fx-act .sprite {
+  animation: hop 0.38s ease;
+}
+
+.fighter.fx-block .plate {
+  animation: block-pop 0.4s ease;
+}
+
+.fighter.fx-enter .sprite {
+  animation: rise-in 0.5s cubic-bezier(0.2, 1, 0.3, 1);
+}
+
+.fighter.fx-faint .sprite {
+  animation: faint 0.55s ease forwards;
+}
+
+.fighter.fx-intent .intent-bubble {
+  animation: pop 0.35s ease;
+}
+
+.dmg-float {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  z-index: 4;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: #fff8f4;
+  text-shadow: 0 2px 0 #8a3328;
+  pointer-events: none;
+  animation: float-up 0.8s ease forwards;
+}
+
+.dmg-float.block {
+  color: #f4f8ff;
+  text-shadow: 0 2px 0 #1d4e89;
+}
+
+.pcard.fx-draw {
+  animation: deal 0.34s cubic-bezier(0.2, 1, 0.3, 1);
+}
+
+.pcard.fx-played {
+  animation: playoff 0.32s ease forwards;
+  pointer-events: none;
+}
+
+.hpbar > span {
+  transition: width 0.35s ease;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes hurt {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-8px);
+    filter: drop-shadow(0 0 8px rgba(196, 92, 74, 0.85));
+  }
+  55% {
+    transform: translateX(7px);
+  }
+}
+
+@keyframes lunge {
+  0% {
+    transform: translateX(0);
+  }
+  45% {
+    transform: translateX(-26px) scale(1.05);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-12px) translateX(10px);
+  }
+}
+
+@keyframes block-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 3px rgba(47, 120, 190, 0.45);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes faint {
+  to {
+    opacity: 0.45;
+    transform: translateY(14px) rotate(-10deg);
+    filter: grayscale(1);
+  }
+}
+
+@keyframes field-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes float-up {
+  to {
+    transform: translate(-50%, -42px);
+    opacity: 0;
+  }
+}
+
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes playoff {
+  to {
+    transform: translateY(-42px) scale(0.84);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fighter .sprite,
+  .pcard.fx-draw,
+  .pcard.fx-played,
+  .dmg-float,
+  .field.fx-shake {
+    animation: none;
+  }
 }
 
 .hpnum {
@@ -1019,7 +1297,11 @@ h3 {
   font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 700;
-  margin-left: auto;
+  margin-left: 0;
+}
+
+.combat .you-bar {
+  justify-content: space-between;
 }
 
 .energy span {
@@ -1072,10 +1354,14 @@ h3 {
 
 .pcard,
 .map-node,
-.enemy-hit,
+.fighter,
 .pile,
 .relic-card {
   font: inherit;
+}
+
+.fighter:disabled {
+  opacity: 1;
 }
 
 .pcard {
