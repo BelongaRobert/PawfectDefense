@@ -10,6 +10,7 @@ import {
   usePotion,
 } from './combat';
 import { generateAct } from './map';
+import { applyActFloor, applyOffer, offerCardOptions, offerDeckMode, rollActOffers } from './offers';
 import { bossRelicPool, getRelic, shopRelicPool, type RelicDef } from './relics';
 import { hasUnlock } from './progression';
 import { nextRand, pick, shuffle } from './rng';
@@ -71,6 +72,8 @@ function blankRun(): RunState {
     combat: null,
     reward: null,
     shop: null,
+    offers: null,
+    offerPick: null,
     eventId: null,
     picker: null,
     relicChoices: [],
@@ -263,9 +266,39 @@ function afterBoss(): void {
   state.cleared = [];
   state.currentNodeId = null;
   state.reachable = state.map.nodes.filter((n) => n.row === 0).map((n) => n.id);
+  openAct();
+}
+
+function openAct(): void {
+  const gained = applyActFloor(state);
+  if (gained > 0) note(`The kennel brings you to ${state.hp}/${state.maxHp}.`, 'good');
+  state.offers = rollActOffers(
+    {
+      maxHp: state.maxHp,
+      hp: state.hp,
+      gold: state.gold,
+      potion: state.potion,
+      relics: state.relics,
+      deck: state.deck,
+      extraCards: state.perks.extraCards,
+    },
+    rng,
+  );
+  state.offerPick = null;
+  state.picker = null;
+  state.phase = 'offer';
+  note(`Act ${state.act}. One offer, then the map.`, 'good');
+  const guest = state.act === 1 && !isLoggedIn();
+  emit({ flash: guest ? 'Guest run — not saved' : `Act ${state.act}` });
+}
+
+function finishOffer(text: string): void {
+  note(text, 'good');
+  state.offers = null;
+  state.offerPick = null;
+  state.picker = null;
   state.phase = 'map';
-  note(`Act ${state.act} begins.`, 'good');
-  emit({ flash: `Act ${state.act}` });
+  emit({ flash: 'Into the yard' });
 }
 
 function kennelHeal(): void {
@@ -486,9 +519,7 @@ export function startRun(): void {
   state.map = generateAct(1, rng);
   state.act = 1;
   state.reachable = state.map.nodes.filter((n) => n.row === 0).map((n) => n.id);
-  state.phase = 'map';
-  note('Act 1. The yard is open.', 'good');
-  emit({ flash: isLoggedIn() ? 'Run started' : 'Guest run — not saved' });
+  openAct();
 }
 
 export function continueRun(): boolean {
@@ -496,6 +527,8 @@ export function continueRun(): boolean {
   const saved = loadRun();
   if (!saved) return false;
   state = saved;
+  if (!state.offers) state.offers = null;
+  if (!state.offerPick) state.offerPick = null;
   note('Welcome back.', 'good');
   emit({ flash: 'Continue save loaded' });
   return true;
@@ -504,6 +537,44 @@ export function continueRun(): boolean {
 export function abandonRun(): void {
   clearRun();
   bootToTitle();
+}
+
+export function chooseOffer(id: string): void {
+  if (state.phase !== 'offer' || state.offerPick || !state.offers) return;
+  const offer = state.offers.find((entry) => entry.id === id);
+  if (!offer) return;
+  if (offerCardOptions(offer.effect) || offerDeckMode(offer.effect)) {
+    state.offerPick = offer.id;
+    emit();
+    return;
+  }
+  const result = applyOffer(state, offer, null, makeCard, rng, state.perks.extraCards);
+  if (!result.ok) return;
+  finishOffer(result.text);
+}
+
+export function confirmOfferCard(defId: string): void {
+  if (state.phase !== 'offer' || !state.offers || !state.offerPick) return;
+  const offer = state.offers.find((entry) => entry.id === state.offerPick);
+  if (!offer || !offerCardOptions(offer.effect)) return;
+  const result = applyOffer(state, offer, { defId }, makeCard, rng, state.perks.extraCards);
+  if (!result.ok) return;
+  finishOffer(result.text);
+}
+
+export function confirmOfferDeck(uid: string): void {
+  if (state.phase !== 'offer' || !state.offers || !state.offerPick) return;
+  const offer = state.offers.find((entry) => entry.id === state.offerPick);
+  if (!offer || !offerDeckMode(offer.effect)) return;
+  const result = applyOffer(state, offer, { uid }, makeCard, rng, state.perks.extraCards);
+  if (!result.ok) return;
+  finishOffer(result.text);
+}
+
+export function cancelOfferPick(): void {
+  if (state.phase !== 'offer' || !state.offerPick) return;
+  state.offerPick = null;
+  emit();
 }
 
 export function chooseNode(id: string): void {

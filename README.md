@@ -31,7 +31,7 @@ The starter deck is 5 Nip, 4 Brace, and 1 Bark. The starter relic Warm Kennel he
 Win the City Pound at the end of act 3. At 0 HP the run is over.
 
 ### Map
-Each act is seven rows plus a boss. Row 1 is a fight. Elites show up on the middle rows. A rest never sits on top of another rest. Hallway fights offer a card and gold. Elites add a relic. Bosses offer one of three relics and heal 30% of max HP.
+Each act starts by topping you up to at least 75% HP, then The Offer: one good deal, one bad deal, and one amazing deal. Look at the map, take one, then path. The map is seven rows plus a boss. Row 1 is a fight. Elites show up on the middle rows. A rest never sits on top of another rest. Hallway fights offer a card and gold. Elites add a relic. Bosses offer one of three relics and heal 30% of max HP before the next act's offer.
 
 ### Saves
 **Guests** play in this tab only. Refresh and the visit is gone.

@@ -1,5 +1,6 @@
 export type Phase =
   | 'title'
+  | 'offer'
   | 'map'
   | 'combat'
   | 'reward'
@@ -9,6 +10,34 @@ export type Phase =
   | 'relic'
   | 'victory'
   | 'ended';
+
+export type OfferTier = 'good' | 'bad' | 'amazing';
+
+/** One of the three deals shown before the map. Stored on the save so a refresh keeps the same choice. */
+export type OfferEffect =
+  | { op: 'gold'; amount: number }
+  | { op: 'maxHp'; amount: number; heal: number }
+  | { op: 'healFull'; bonusMax: number }
+  | { op: 'potion'; potion: PotionId }
+  | { op: 'potionGold'; potion: PotionId; gold: number }
+  | { op: 'relic'; relicId: string }
+  | { op: 'curseGold'; count: number; gold: number }
+  | { op: 'loseHpGold'; hp: number; gold: number }
+  | { op: 'loseHpChoose'; hp: number; options: string[] }
+  | { op: 'loseMaxHpRelic'; maxHp: number; relicId: string }
+  | { op: 'loseMaxHpRemove'; maxHp: number }
+  | { op: 'chooseCard'; options: string[] }
+  | { op: 'upgrade' }
+  | { op: 'remove' }
+  | { op: 'transform' };
+
+export interface ActOffer {
+  id: string;
+  tier: OfferTier;
+  title: string;
+  detail: string;
+  effect: OfferEffect;
+}
 
 export type CardType = 'attack' | 'skill' | 'power' | 'curse';
 export type Rarity = 'starter' | 'common' | 'uncommon' | 'rare' | 'curse' | 'boss';
@@ -156,6 +185,10 @@ export interface RunState {
   combat: CombatState | null;
   reward: RewardState | null;
   shop: ShopState | null;
+  /** Three deals at the start of the act. Null once one is taken. */
+  offers: ActOffer[] | null;
+  /** Deal waiting on a card pick. Costs apply only after that pick. */
+  offerPick: string | null;
   eventId: string | null;
   picker: Picker;
   relicChoices: string[];

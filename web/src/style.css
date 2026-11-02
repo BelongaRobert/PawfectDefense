@@ -1356,8 +1356,67 @@ h3 {
 .map-node,
 .fighter,
 .pile,
-.relic-card {
+.relic-card,
+.offer-card {
   font: inherit;
+}
+
+.offer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.offer-card {
+  text-align: left;
+  border-radius: 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.offer-card strong {
+  font-family: Fraunces, serif;
+  font-size: 1.15rem;
+}
+
+.offer-tier {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.offer-card.tier-good {
+  border-color: #86efac;
+}
+
+.offer-card.tier-good .offer-tier {
+  color: #166534;
+}
+
+.offer-card.tier-bad {
+  border-color: #f0a8a0;
+  background: #fff6f4;
+}
+
+.offer-card.tier-bad .offer-tier {
+  color: #9f3a32;
+}
+
+.offer-card.tier-amazing {
+  border-color: #fcd34d;
+  background: linear-gradient(#fff, #fffbeb);
+}
+
+.offer-card.tier-amazing .offer-tier {
+  color: #92400e;
 }
 
 .fighter:disabled {

@@ -54,7 +54,9 @@ Three acts. Each act is 7 rows, up to 3 rooms wide, paths only to the same colum
 - A rest never links directly to another rest.
 - Each act has at least one shop, one rest, and one elite.
 
-Hallway rewards are 3 cards (skip allowed) and 10–20 gold. Elites grant a relic, a card, and 25–35 gold. Bosses offer 3 relics and heal 30% of max HP.
+Each act opens on The Offer, before any room. HP is raised to at least 75% of max (it is never lowered). Then you take one of three deals: one good, one bad, one amazing. You can look at the map before you choose. The deal is the only way onto the map.
+
+Hallway rewards are 3 cards (skip allowed) and 10–20 gold. Elites grant a relic, a card, and 25–35 gold. Bosses offer 3 relics, heal 30% of max HP, and the next act opens on The Offer again.
 
 Rest is one choice: heal 30% of max HP, or upgrade one card. The shop sells 5 cards (50 / 75 / 150 by rarity), a remove for 75 gold, 2 relics, and a potion if the slot is empty. You hold one potion: Block 12, deal 12, 2 Strength this combat, or heal 10.
 
@@ -73,7 +75,8 @@ Combat state is data, separate from the DOM, so a fight can be stepped without t
 - `web/src/game/encounters.ts` — enemies and act tables
 - `web/src/game/map.ts` — act generation
 - `web/src/game/relics.ts` — relic defs
-- `web/src/game/game.ts` — the run: map, reward, shop, rest, event, boss relic, defeat, victory
+- `web/src/game/offers.ts` — the act-start HP floor and the three deals
+- `web/src/game/game.ts` — the run: offer, map, reward, shop, rest, event, boss relic, defeat, victory
 
 Save version is 2. An in-progress shelter-sim run cannot continue. Profile, XP, and unlocks stay. `web/scripts/combat-check.ts` walks the formula, Bed Down, Flea, and the map rules.
 
