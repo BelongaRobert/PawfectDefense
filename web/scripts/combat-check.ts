@@ -4,6 +4,8 @@
  */
 import { currentIntent, endTurn, intentView, playCard, scaledDamage, startCombat, applyPoisonTick } from '../src/game/combat';
 import { generateAct, mapProblems } from '../src/game/map';
+import { actHpTarget, applyActFloor, applyOffer, rollActOffers } from '../src/game/offers';
+import type { ActOffer } from '../src/game/types';
 import { nextRand } from '../src/game/rng';
 import type { CardInstance, CombatState } from '../src/game/types';
 
@@ -194,6 +196,50 @@ const quiet = () => 0.2;
       assert(problems.length === 0, `act ${act} seed ${i}: ${problems.join(',')}`);
     }
   }
+}
+
+{
+  assert(actHpTarget(72) === 54, '75% of 72');
+  assert(actHpTarget(82) === 62, '75% of 82 rounds up');
+  const low = { hp: 10, maxHp: 72 };
+  assert(applyActFloor(low) === 44 && low.hp === 54, `floor from 10 got ${low.hp}`);
+  const high = { hp: 60, maxHp: 72 };
+  assert(applyActFloor(high) === 0 && high.hp === 60, 'floor does not lower HP');
+  const odd = { hp: 40, maxHp: 82 };
+  assert(applyActFloor(odd) === 22 && odd.hp === 62, `ceil floor got ${odd.hp}`);
+
+  const starters = ['nip', 'nip', 'nip', 'nip', 'nip', 'brace', 'brace', 'brace', 'brace', 'bark'].map((id, index) =>
+    card(`s${index}`, id),
+  );
+  for (let seed = 1; seed <= 24; seed++) {
+    const offers = rollActOffers(
+      { maxHp: 72, hp: 54, gold: 99, potion: null, relics: ['warm_kennel'], deck: starters, extraCards: [] },
+      rngFrom(seed),
+    );
+    assert(offers.map((offer) => offer.tier).join(',') === 'good,bad,amazing', `offer tiers ${seed}: ${offers.map((o) => o.tier)}`);
+  }
+
+  const fleaRun = { hp: 54, maxHp: 72, gold: 99, potion: null, relics: ['warm_kennel'], deck: starters.map((c) => ({ ...c })) };
+  const fleaOffer: ActOffer = {
+    id: 'bad',
+    tier: 'bad',
+    title: 'Flea',
+    detail: '',
+    effect: { op: 'curseGold', count: 1, gold: 130 },
+  };
+  const flea = applyOffer(fleaRun, fleaOffer, null, (defId) => card(`f-${defId}`, defId), rngFrom(1), []);
+  assert(flea.ok && fleaRun.gold === 229 && fleaRun.deck.some((c) => c.defId === 'flea'), 'flea offer pays and curses');
+
+  const sore = { hp: 5, maxHp: 72, gold: 0, potion: null, relics: [] as string[], deck: starters.map((c) => ({ ...c })) };
+  const soreOffer: ActOffer = {
+    id: 'bad',
+    tier: 'bad',
+    title: 'Sore',
+    detail: '',
+    effect: { op: 'loseHpGold', hp: 18, gold: 90 },
+  };
+  const survived = applyOffer(sore, soreOffer, null, (defId) => card(`n-${defId}`, defId), rngFrom(1), []);
+  assert(survived.ok && sore.hp === 1 && sore.gold === 90, `sore paw leaves 1 HP, got ${sore.hp}`);
 }
 
 if (failed) {

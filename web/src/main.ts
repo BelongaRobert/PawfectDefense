@@ -29,9 +29,13 @@ import {
   cancelPicker,
   cardEnergy,
   cardPlayable,
+  cancelOfferPick,
   chooseBossRelic,
   chooseEvent,
   chooseNode,
+  chooseOffer,
+  confirmOfferCard,
+  confirmOfferDeck,
   confirmRemove,
   confirmUpgrade,
   continueRun,
@@ -68,6 +72,7 @@ import {
   updatePlayerName,
 } from './game/game';
 import { UNLOCKS, xpToNextLevel } from './game/progression';
+import { offerCardOptions, offerDeckMode } from './game/offers';
 import { getRelic } from './game/relics';
 import { continueSummary, hasContinue } from './game/save';
 import type { CardInstance, CombatState, MapNode, RunState } from './game/types';
@@ -78,6 +83,8 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 
 /** Pile and shop-remove sheets are UI-only. They are not part of the save. */
 let sheet: { title: string; cards: CardInstance[]; pick: 'shop-remove' | null } | null = null;
+/** Map peek on the act offer. UI-only, so leaving the offer clears it. */
+let offerPeek = false;
 
 const ENEMY_ART: Record<string, string> = {
   raccoon: raccoonUrl,
@@ -157,7 +164,21 @@ function onClick(event: MouseEvent): void {
     render();
     return;
   }
-  if (act === 'node') chooseNode(id);
+  if (act === 'peek-map') {
+    offerPeek = true;
+    render();
+    return;
+  }
+  if (act === 'peek-back') {
+    offerPeek = false;
+    render();
+    return;
+  }
+  if (act === 'take-offer') chooseOffer(id);
+  else if (act === 'offer-card') confirmOfferCard(id);
+  else if (act === 'offer-deck') confirmOfferDeck(id);
+  else if (act === 'offer-back') cancelOfferPick();
+  else if (act === 'node') chooseNode(id);
   else if (act === 'play') playHandCard(id);
   else if (act === 'enemy') aimEnemy(id);
   else if (act === 'exhaust') exhaustChoice(id);
@@ -203,6 +224,7 @@ function render(): void {
     return;
   }
 
+  if (s.phase !== 'offer') offerPeek = false;
   if (s.phase !== 'combat') lastSnap = null;
   if (
     s.phase === 'combat' &&
@@ -246,7 +268,7 @@ function renderTitle(): string {
         <button class="info-btn" id="info-toggle" type="button" aria-expanded="false" aria-controls="info-bubble" title="How to play">i</button>
       </div>
       <div class="info-bubble" id="info-bubble" hidden>
-        <p>Three acts. One kennel lead. A real fight.</p>
+        <p>Three acts. Each one starts at 75% HP or higher, then one offer: good, bad, or amazing.</p>
         <p>Spend energy on Attacks, Skills, and Powers. Block lasts through the enemy turn.</p>
         <p>Enemies show the hit before they take it. Draft toward Strength, Block, or Vulnerable.</p>
         <p>Guest play is temporary. Log in to keep XP and Continue.</p>
@@ -488,6 +510,7 @@ function renderHud(s: RunState): string {
 }
 
 function renderPhase(s: RunState): string {
+  if (s.phase === 'offer') return offerPeek ? renderMap(s, true) : renderOffer(s);
   if (s.phase === 'map') return renderMap(s);
   if (s.phase === 'combat' && s.combat) return renderCombat(s.combat);
   if (s.phase === 'reward' && s.reward) return renderReward(s);
@@ -515,7 +538,53 @@ function nodeTitle(node: MapNode): string {
   return NODE_FACE[node.kind].label;
 }
 
-function renderMap(s: RunState): string {
+function renderOffer(s: RunState): string {
+  const offers = s.offers ?? [];
+  const picked = offers.find((offer) => offer.id === s.offerPick);
+  const floor = Math.ceil(s.maxHp * 0.75);
+  let body = '';
+  if (picked) {
+    const options = offerCardOptions(picked.effect);
+    const deckMode = offerDeckMode(picked.effect);
+    if (options) {
+      body = `<div class="card-row">${options.map((id) => previewCard(id, { act: 'offer-card', id, extra: '<span class="pcard-price">Take</span>' })).join('')}</div>`;
+    } else if (deckMode) {
+      const cards = s.deck.filter((card) => (deckMode === 'upgrade' ? canUpgrade(card) : true));
+      body = cards.length
+        ? `<div class="card-row">${cards.map((card) => cardFace(card, { act: 'offer-deck', id: card.uid })).join('')}</div>`
+        : '<p>No card fits this offer.</p>';
+    }
+    body += '<div class="row-actions"><button class="btn ghost" type="button" data-act="offer-back">Back</button></div>';
+  } else {
+    body = `<div class="offer-list">${offers
+      .map(
+        (offer) => `
+          <button class="offer-card tier-${offer.tier}" type="button" data-act="take-offer" data-id="${escapeHtml(offer.id)}">
+            <span class="offer-tier">${offer.tier}</span>
+            <strong>${escapeHtml(offer.title)}</strong>
+            <span>${escapeHtml(offer.detail)}</span>
+          </button>`,
+      )
+      .join('')}</div>
+      <div class="row-actions"><button class="btn secondary" type="button" data-act="peek-map">Look at the map</button></div>`;
+  }
+  return `
+    <section class="panel">
+      <header>
+        <div>
+          <h2>The Offer</h2>
+          <p>Act ${s.act} starts here. Take one deal, then pick a path.</p>
+        </div>
+      </header>
+      <p class="card-note">Every act begins at ${floor}/${s.maxHp} HP or higher. You are at ${s.hp}/${s.maxHp}.</p>
+      ${picked ? `<p class="card-note">${escapeHtml(picked.detail)}</p>` : ''}
+      ${body}
+      ${renderLog(s.log)}
+    </section>
+  `;
+}
+
+function renderMap(s: RunState, locked = false): string {
   const lines: string[] = [];
   for (const node of s.map.nodes) {
     for (const nextId of node.next) {
@@ -532,7 +601,7 @@ function renderMap(s: RunState): string {
   for (let row = 7; row >= 0; row--) {
     const slots = [0, 1, 2].map((col) => {
       const node = s.map.nodes.find((n) => n.row === row && n.col === col);
-      return node ? mapNode(s, node) : '<div class="map-slot"></div>';
+      return node ? mapNode(s, node, locked) : '<div class="map-slot"></div>';
     });
     rows.push(`<div class="map-row">${slots.join('')}</div>`);
   }
@@ -541,9 +610,10 @@ function renderMap(s: RunState): string {
       <header>
         <div>
           <h2>Act ${s.act}</h2>
-          <p>Pick an open room. The boss waits at the top.</p>
+          <p>${locked ? 'Look first. The deal is still waiting.' : 'Pick an open room. The boss waits at the top.'}</p>
         </div>
       </header>
+      ${locked ? '<div class="row-actions"><button class="btn" type="button" data-act="peek-back">Back to the offers</button></div>' : ''}
       <div class="map-grid">
         <svg class="map-lines" viewBox="0 0 300 800" preserveAspectRatio="none" aria-hidden="true">${lines.join('')}</svg>
         <div class="map-rows">${rows.join('')}</div>
@@ -553,8 +623,8 @@ function renderMap(s: RunState): string {
   `;
 }
 
-function mapNode(s: RunState, node: MapNode): string {
-  const open = s.reachable.includes(node.id);
+function mapNode(s: RunState, node: MapNode, locked = false): string {
+  const open = !locked && s.reachable.includes(node.id);
   const done = s.cleared.includes(node.id);
   const face = NODE_FACE[node.kind];
   const cls = ['map-node', `kind-${node.kind}`, open ? 'is-open' : '', done ? 'is-done' : '', !open && !done ? 'is-locked' : '']
