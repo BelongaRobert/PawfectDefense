@@ -1,5 +1,5 @@
 /* Pawfect Shelter — offline shell for Home Screen / PWA installs */
-const CACHE = 'pawfect-shelter-v3';
+const CACHE = 'pawfect-shelter-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -10,7 +10,20 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE).then((cache) =>
+      Promise.all(
+        ASSETS.map(async (path) => {
+          // Query string misses the previous cache-first worker, so this
+          // install stores the files that are actually on the server.
+          const sep = path.includes('?') ? '&' : '?';
+          const response = await fetch(`${path}${sep}sw=${CACHE}`, { cache: 'reload' });
+          if (!response.ok) throw new Error(`precache failed: ${path}`);
+          await cache.put(path, response);
+        }),
+      ),
+    ),
+  );
   self.skipWaiting();
 });
 
@@ -26,11 +39,36 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  const shell =
+    request.mode === 'navigate' ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('/sw.js');
+
+  if (shell) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match('./index.html')),
+        ),
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then((cached) => {
       const fetched = fetch(request)
         .then((response) => {
-          if (response.ok && request.url.startsWith(self.location.origin)) {
+          if (response.ok) {
             const copy = response.clone();
             caches.open(CACHE).then((cache) => cache.put(request, copy));
           }
