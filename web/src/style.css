@@ -1085,12 +1085,70 @@ h3 {
 }
 
 .pcard.fx-draw {
-  animation: deal 0.34s cubic-bezier(0.2, 1, 0.3, 1);
+  animation: deal 0.38s cubic-bezier(0.2, 1, 0.3, 1);
 }
 
 .pcard.fx-played {
-  animation: playoff 0.32s ease forwards;
+  animation: playoff 0.22s ease forwards;
   pointer-events: none;
+}
+
+.pcard.pcard-flight {
+  position: fixed;
+  z-index: 30;
+  margin: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  animation: card-flight 0.46s cubic-bezier(0.18, 0.7, 0.2, 1) forwards;
+}
+
+.pcard.pcard-flight.flight-skill {
+  animation-name: card-swing;
+}
+
+.pcard.pcard-flight.flight-power {
+  animation-name: card-rise;
+  animation-duration: 0.55s;
+}
+
+.pcard.pcard-flight.flight-exhaust {
+  animation-duration: 0.4s;
+}
+
+.impact-flash {
+  position: fixed;
+  z-index: 29;
+  width: 5rem;
+  height: 5rem;
+  margin: -2.5rem 0 0 -2.5rem;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  animation: impact 0.5s ease 0.28s forwards;
+}
+
+.impact-attack {
+  background: radial-gradient(circle, rgba(255, 214, 186, 0.95), rgba(196, 92, 74, 0) 68%);
+}
+
+.impact-skill {
+  background: radial-gradient(circle, rgba(214, 232, 255, 0.95), rgba(47, 120, 190, 0) 68%);
+}
+
+.impact-power {
+  background: radial-gradient(circle, rgba(232, 214, 255, 0.95), rgba(120, 80, 180, 0) 68%);
+}
+
+.impact-exhaust {
+  background: radial-gradient(circle, rgba(255, 236, 214, 0.7), rgba(120, 90, 60, 0) 68%);
+}
+
+.fighter.fx-late.fx-hurt .sprite,
+.fighter.fx-late.fx-block .plate,
+.fighter.fx-late.fx-faint .sprite,
+.field.fx-late.fx-shake,
+.dmg-float.fx-late {
+  animation-delay: 0.3s;
 }
 
 .hpbar > span {
@@ -1198,7 +1256,7 @@ h3 {
 @keyframes deal {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.92);
+    transform: translate(-24px, 20px) rotate(-6deg) scale(0.9);
   }
   to {
     opacity: 1;
@@ -1208,8 +1266,68 @@ h3 {
 
 @keyframes playoff {
   to {
-    transform: translateY(-42px) scale(0.84);
+    transform: translateY(-10px) scale(0.92);
     opacity: 0;
+  }
+}
+
+@keyframes card-flight {
+  0% {
+    transform: translate(0, 0) rotate(-6deg) scale(1);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(calc(var(--dx) * 0.8), calc(var(--dy) * 0.72 - 16px)) rotate(-8deg) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) rotate(4deg) scale(0.8);
+    opacity: 0;
+  }
+}
+
+@keyframes card-swing {
+  0% {
+    transform: translate(0, 0) rotate(5deg) scale(1);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(calc(var(--dx) * 0.76), calc(var(--dy) * 0.64 - 20px)) rotate(7deg) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) rotate(-3deg) scale(0.82);
+    opacity: 0;
+  }
+}
+
+@keyframes card-rise {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(calc(var(--dx) * 0.7), calc(var(--dy) * 0.7)) scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(1.12);
+    opacity: 0;
+  }
+}
+
+@keyframes impact {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
   }
 }
 
@@ -1217,6 +1335,8 @@ h3 {
   .fighter .sprite,
   .pcard.fx-draw,
   .pcard.fx-played,
+  .pcard.pcard-flight,
+  .impact-flash,
   .dmg-float,
   .field.fx-shake {
     animation: none;

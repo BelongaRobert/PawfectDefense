@@ -678,20 +678,84 @@ function motionOk(): boolean {
   return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function kick(el: HTMLElement, cls: string): void {
+function kick(el: HTMLElement, cls: string, late = false): void {
   if (!motionOk()) return;
-  el.classList.remove(cls);
+  el.classList.remove(cls, 'fx-late');
   void el.offsetWidth;
+  if (late) el.classList.add('fx-late');
   el.classList.add(cls);
-  window.setTimeout(() => el.classList.remove(cls), 720);
+  window.setTimeout(() => el.classList.remove(cls, 'fx-late'), late ? 1200 : 720);
 }
 
-function floatNum(el: HTMLElement, text: string, kind: 'hurt' | 'block'): void {
+function floatNum(el: HTMLElement, text: string, kind: 'hurt' | 'block', late = false): void {
   const span = document.createElement('span');
-  span.className = `dmg-float ${kind}`;
+  span.className = `dmg-float ${kind}${late ? ' fx-late' : ''}`;
   span.textContent = text;
   el.appendChild(span);
-  window.setTimeout(() => span.remove(), 900);
+  window.setTimeout(() => span.remove(), late ? 1200 : 900);
+}
+
+function cardKind(el: HTMLElement): 'attack' | 'skill' | 'power' {
+  if (el.classList.contains('t-attack')) return 'attack';
+  if (el.classList.contains('t-power')) return 'power';
+  return 'skill';
+}
+
+function flightDestination(
+  kind: 'attack' | 'skill' | 'power',
+  root: Element,
+  combat: CombatState,
+  fresh: { text: string }[],
+): HTMLElement | null {
+  const names = combat.enemies.map((enemy) => enemy.name);
+  const struck = fresh
+    .map((line) => nameStarts(line.text, names, ' takes '))
+    .filter((name): name is string => !!name);
+  const byName = (name: string): HTMLElement | null => {
+    const enemy = combat.enemies.find((entry) => entry.name === name);
+    if (!enemy) return null;
+    return root.querySelector<HTMLElement>(`[data-act="enemy"][data-id="${CSS.escape(enemy.uid)}"]`);
+  };
+  if (kind === 'power') return root.querySelector('.field');
+  if (kind === 'attack' || struck.length > 0) {
+    if (struck.length === 1) return byName(struck[0]!) ?? root.querySelector('.foes');
+    if (struck.length > 1) return root.querySelector('.foes');
+    const living = combat.enemies.find((enemy) => enemy.hp > 0);
+    if (living) return root.querySelector(`[data-id="${CSS.escape(living.uid)}"]`);
+    return root.querySelector('.foes');
+  }
+  return root.querySelector('[data-who="you"]');
+}
+
+/** A copy of the card travels to its target. The hand copy fades in place. */
+function launchCard(source: HTMLElement, dest: HTMLElement | null, kind: 'attack' | 'skill' | 'power' | 'exhaust'): void {
+  if (!dest) return;
+  const from = source.getBoundingClientRect();
+  const to = dest.getBoundingClientRect();
+  if (from.width < 2 || to.width < 2) return;
+  const ghost = source.cloneNode(true) as HTMLElement;
+  ghost.removeAttribute('data-act');
+  ghost.classList.remove('fx-played', 'is-selected', 'is-disabled');
+  ghost.classList.add('pcard-flight', `flight-${kind}`);
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.style.left = `${from.left}px`;
+  ghost.style.top = `${from.top}px`;
+  ghost.style.width = `${from.width}px`;
+  ghost.style.height = `${from.height}px`;
+  const yBias = kind === 'power' ? 0.28 : 0.42;
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.height * yBias - (from.top + from.height / 2);
+  ghost.style.setProperty('--dx', `${Math.round(dx)}px`);
+  ghost.style.setProperty('--dy', `${Math.round(dy)}px`);
+  const flash = document.createElement('div');
+  flash.className = `impact-flash impact-${kind}`;
+  flash.style.left = `${to.left + to.width / 2}px`;
+  flash.style.top = `${to.top + to.height * yBias}px`;
+  document.body.append(ghost, flash);
+  window.setTimeout(() => {
+    ghost.remove();
+    flash.remove();
+  }, 720);
 }
 
 function promptText(combat: CombatState): string {
@@ -787,17 +851,27 @@ function updateCardButton(el: HTMLElement, card: CardInstance, combat: CombatSta
   if (cost) cost.textContent = String(cardEnergy(card));
 }
 
-function syncHand(root: Element, combat: CombatState, prev: CombatSnap | null, sameTurn: boolean): void {
+function syncHand(
+  root: Element,
+  combat: CombatState,
+  prev: CombatSnap | null,
+  sameTurn: boolean,
+  fresh: { text: string }[],
+): void {
   const hand = root.querySelector('.combat-hand');
   if (!hand) return;
+  const played = fresh.some((line) => line.text.startsWith('Play '));
   const nextIds = new Set(combat.hand.map((card) => card.uid));
   for (const el of [...hand.querySelectorAll<HTMLElement>('.pcard')]) {
     const id = el.dataset.id || '';
     if (nextIds.has(id)) continue;
     if (sameTurn && motionOk() && !el.classList.contains('fx-played')) {
+      const kind = cardKind(el);
+      if (played) launchCard(el, flightDestination(kind, root, combat, fresh), kind);
+      else launchCard(el, root.querySelector('[data-pile="exhaust"]'), 'exhaust');
       el.classList.add('fx-played');
       el.setAttribute('disabled', '');
-      window.setTimeout(() => el.remove(), 320);
+      window.setTimeout(() => el.remove(), 280);
     } else el.remove();
   }
   for (const card of combat.hand) {
@@ -881,17 +955,18 @@ function syncCombat(combat: CombatState): void {
   const prev = lastSnap;
   const fresh = prev ? freshLines(combat.log, prev.logTop) : [];
   const sameTurn = !!prev && prev.turn === combat.turn;
+  const cardPlayed = sameTurn && fresh.some((line) => line.text.startsWith('Play '));
   const you = root.querySelector<HTMLElement>('[data-who="you"]');
   if (you) {
     if (prev && combat.player.hp < prev.playerHp) {
-      kick(you, 'fx-hurt');
-      floatNum(you, `-${prev.playerHp - combat.player.hp}`, 'hurt');
+      kick(you, 'fx-hurt', cardPlayed);
+      floatNum(you, `-${prev.playerHp - combat.player.hp}`, 'hurt', cardPlayed);
       const field = root.querySelector<HTMLElement>('.field');
-      if (field) kick(field, 'fx-shake');
+      if (field) kick(field, 'fx-shake', cardPlayed);
     }
     if (prev && combat.player.block > prev.playerBlock) {
-      kick(you, 'fx-block');
-      floatNum(you, `+${combat.player.block - prev.playerBlock}`, 'block');
+      kick(you, 'fx-block', cardPlayed);
+      floatNum(you, `+${combat.player.block - prev.playerBlock}`, 'block', cardPlayed);
     }
     if (sameTurn && prev && combat.player.energy < prev.energy) kick(you, 'fx-act');
     paintPlate(you, combat.player.hp, combat.player.maxHp, statusChips(combat.player), 'Pack Lead');
@@ -911,21 +986,21 @@ function syncCombat(combat: CombatState): void {
       const before = prev?.enemies[enemy.uid];
       if (before && !born) {
         if (enemy.hp < before.hp) {
-          kick(node, 'fx-hurt');
-          floatNum(node, `-${before.hp - enemy.hp}`, 'hurt');
+          kick(node, 'fx-hurt', cardPlayed);
+          floatNum(node, `-${before.hp - enemy.hp}`, 'hurt', cardPlayed);
         }
         if (fresh.some((line) => nameStarts(line.text, [enemy.name], ' hits for'))) kick(node, 'fx-lunge');
         if (enemy.block > before.block) {
-          kick(node, 'fx-block');
-          floatNum(node, `+${enemy.block - before.block}`, 'block');
+          kick(node, 'fx-block', cardPlayed);
+          floatNum(node, `+${enemy.block - before.block}`, 'block', cardPlayed);
         }
-        if (enemy.hp <= 0 && before.hp > 0) kick(node, 'fx-faint');
+        if (enemy.hp <= 0 && before.hp > 0) kick(node, 'fx-faint', cardPlayed);
       }
       paintEnemy(node, enemy, combat);
     }
     foes.className = `foes foes-${Math.min(3, Math.max(1, combat.enemies.length))}`;
   }
-  syncHand(root, combat, prev, sameTurn);
+  syncHand(root, combat, prev, sameTurn, fresh);
   syncChrome(root, combat);
   lastSnap = takeSnap(combat);
 }
