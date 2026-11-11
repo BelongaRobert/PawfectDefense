@@ -1,5 +1,5 @@
 /* Pawfect Shelter — offline shell for Home Screen / PWA installs */
-const CACHE = 'pawfect-shelter-v5';
+const CACHE = 'pawfect-shelter-v6';
 const ASSETS = [
   './',
   './index.html',
