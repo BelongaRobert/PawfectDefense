@@ -1,3 +1,4 @@
+import type { CharacterId } from './characters';
 import type { CardInstance, CardTarget, CardType, Effect, Rarity } from './types';
 
 export interface CardDef {
@@ -16,6 +17,8 @@ export interface CardDef {
   upgradedEffects: Effect[];
   /** Hidden from rewards until the matching unlock is on the run. */
   unlock?: 'flutter' | 'ferret_bite';
+  /** Which lead can draft this card. Shared cards appear for every lead. */
+  who?: CharacterId | 'shared';
 }
 
 function card(def: CardDef): CardDef {
@@ -340,6 +343,253 @@ export const CARDS: CardDef[] = [
     upgradedText: 'Heal 9 HP. Exhaust.',
     effects: [{ op: 'heal', amount: 6 }],
     upgradedEffects: [{ op: 'heal', amount: 9 }],
+    who: 'shared',
+  }),
+  card({
+    id: 'scratch',
+    name: 'Scratch',
+    type: 'attack',
+    rarity: 'starter',
+    cost: 1,
+    emoji: '🐱',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Deal 4 damage. Apply 2 Poison.',
+    upgradedText: 'Deal 5 damage. Apply 3 Poison.',
+    effects: [
+      { op: 'damage', amount: 4 },
+      { op: 'poison', amount: 2 },
+    ],
+    upgradedEffects: [
+      { op: 'damage', amount: 5 },
+      { op: 'poison', amount: 3 },
+    ],
+    who: 'cat',
+  }),
+  card({
+    id: 'perch',
+    name: 'Perch',
+    type: 'skill',
+    rarity: 'starter',
+    cost: 1,
+    emoji: '🪵',
+    target: 'self',
+    exhaust: false,
+    text: 'Gain 4 Block.',
+    upgradedText: 'Gain 7 Block.',
+    effects: [{ op: 'block', amount: 4 }],
+    upgradedEffects: [{ op: 'block', amount: 7 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'pounce',
+    name: 'Pounce',
+    type: 'attack',
+    rarity: 'starter',
+    cost: 2,
+    emoji: '💥',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Deal 7 damage. Apply 3 Poison.',
+    upgradedText: 'Deal 9 damage. Apply 4 Poison.',
+    effects: [
+      { op: 'damage', amount: 7 },
+      { op: 'poison', amount: 3 },
+    ],
+    upgradedEffects: [
+      { op: 'damage', amount: 9 },
+      { op: 'poison', amount: 4 },
+    ],
+    who: 'cat',
+  }),
+  card({
+    id: 'swat',
+    name: 'Swat',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    emoji: '🐾',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Deal 3 damage twice.',
+    upgradedText: 'Deal 4 damage twice.',
+    effects: [{ op: 'hits', amount: 3, times: 2 }],
+    upgradedEffects: [{ op: 'hits', amount: 4, times: 2 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'hairball',
+    name: 'Hairball',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    emoji: '🤢',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Apply 4 Poison.',
+    upgradedText: 'Apply 6 Poison.',
+    effects: [{ op: 'poison', amount: 4 }],
+    upgradedEffects: [{ op: 'poison', amount: 6 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'slink',
+    name: 'Slink',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    emoji: '🌙',
+    target: 'self',
+    exhaust: false,
+    text: 'Draw 2 cards.',
+    upgradedText: 'Draw 3 cards.',
+    effects: [{ op: 'draw', amount: 2 }],
+    upgradedEffects: [{ op: 'draw', amount: 3 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'alley',
+    name: 'Alley',
+    type: 'attack',
+    rarity: 'common',
+    cost: 1,
+    emoji: '🐈',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Deal 8 damage.',
+    upgradedText: 'Deal 11 damage.',
+    effects: [{ op: 'damage', amount: 8 }],
+    upgradedEffects: [{ op: 'damage', amount: 11 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'lick',
+    name: 'Lick',
+    type: 'skill',
+    rarity: 'common',
+    cost: 1,
+    emoji: '👅',
+    target: 'self',
+    exhaust: true,
+    text: 'Heal 4 HP. Gain 4 Block. Exhaust.',
+    upgradedText: 'Heal 6 HP. Gain 6 Block. Exhaust.',
+    effects: [
+      { op: 'heal', amount: 4 },
+      { op: 'block', amount: 4 },
+    ],
+    upgradedEffects: [
+      { op: 'heal', amount: 6 },
+      { op: 'block', amount: 6 },
+    ],
+    who: 'cat',
+  }),
+  card({
+    id: 'ambush',
+    name: 'Ambush',
+    type: 'attack',
+    rarity: 'uncommon',
+    cost: 1,
+    emoji: '🌑',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Deal 5 damage. Apply 4 Poison.',
+    upgradedText: 'Deal 7 damage. Apply 5 Poison.',
+    effects: [
+      { op: 'damage', amount: 5 },
+      { op: 'poison', amount: 4 },
+    ],
+    upgradedEffects: [
+      { op: 'damage', amount: 7 },
+      { op: 'poison', amount: 5 },
+    ],
+    who: 'cat',
+  }),
+  card({
+    id: 'yarn',
+    name: 'Yarn',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 0,
+    emoji: '🧶',
+    target: 'self',
+    exhaust: true,
+    text: 'Draw 2 cards. Exhaust.',
+    upgradedText: 'Draw 3 cards. Exhaust.',
+    effects: [{ op: 'draw', amount: 2 }],
+    upgradedEffects: [{ op: 'draw', amount: 3 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'back_arch',
+    name: 'Back Arch',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 2,
+    emoji: '🐈‍⬛',
+    target: 'self',
+    exhaust: false,
+    text: 'Gain 10 Block.',
+    upgradedText: 'Gain 14 Block.',
+    effects: [{ op: 'block', amount: 10 }],
+    upgradedEffects: [{ op: 'block', amount: 14 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'corner',
+    name: 'Corner',
+    type: 'skill',
+    rarity: 'uncommon',
+    cost: 1,
+    emoji: '📦',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Apply 3 Poison. Draw 1 card.',
+    upgradedText: 'Apply 4 Poison. Draw 1 card.',
+    effects: [
+      { op: 'poison', amount: 3 },
+      { op: 'draw', amount: 1 },
+    ],
+    upgradedEffects: [
+      { op: 'poison', amount: 4 },
+      { op: 'draw', amount: 1 },
+    ],
+    who: 'cat',
+  }),
+  card({
+    id: 'plague',
+    name: 'Plague',
+    type: 'skill',
+    rarity: 'rare',
+    cost: 1,
+    emoji: '☠️',
+    target: 'enemy',
+    exhaust: true,
+    text: 'Apply 8 Poison. Exhaust.',
+    upgradedText: 'Apply 11 Poison. Exhaust.',
+    effects: [{ op: 'poison', amount: 8 }],
+    upgradedEffects: [{ op: 'poison', amount: 11 }],
+    who: 'cat',
+  }),
+  card({
+    id: 'black_cat',
+    name: 'Black Cat',
+    type: 'attack',
+    rarity: 'rare',
+    cost: 2,
+    emoji: '🖤',
+    target: 'enemy',
+    exhaust: false,
+    text: 'Deal 14 damage. Apply 4 Poison.',
+    upgradedText: 'Deal 18 damage. Apply 5 Poison.',
+    effects: [
+      { op: 'damage', amount: 14 },
+      { op: 'poison', amount: 4 },
+    ],
+    upgradedEffects: [
+      { op: 'damage', amount: 18 },
+      { op: 'poison', amount: 5 },
+    ],
+    who: 'cat',
   }),
   card({
     id: 'flea',
@@ -354,6 +604,7 @@ export const CARDS: CardDef[] = [
     upgradedText: 'Unplayable.',
     effects: [],
     upgradedEffects: [],
+    who: 'shared',
   }),
   card({
     id: 'flutter',
@@ -369,6 +620,7 @@ export const CARDS: CardDef[] = [
     effects: [{ op: 'hits', amount: 3, times: 3 }],
     upgradedEffects: [{ op: 'hits', amount: 4, times: 3 }],
     unlock: 'flutter',
+    who: 'shared',
   }),
   card({
     id: 'ferret_bite',
@@ -384,6 +636,7 @@ export const CARDS: CardDef[] = [
     effects: [{ op: 'poison', amount: 5 }],
     upgradedEffects: [{ op: 'poison', amount: 7 }],
     unlock: 'ferret_bite',
+    who: 'shared',
   }),
 ];
 
@@ -419,10 +672,16 @@ export function cardName(card: CardInstance): string {
   return card.upgraded ? `${def.name}+` : def.name;
 }
 
-export function rewardPool(extraCards: readonly string[], deck: readonly CardInstance[]): CardDef[] {
+export function rewardPool(
+  extraCards: readonly string[],
+  deck: readonly CardInstance[],
+  character: CharacterId = 'lead',
+): CardDef[] {
   const hasBed = deck.some((c) => c.defId === 'bed_down');
   return CARDS.filter((c) => {
     if (c.rarity !== 'common' && c.rarity !== 'uncommon' && c.rarity !== 'rare') return false;
+    const who = c.who ?? 'lead';
+    if (who !== 'shared' && who !== character) return false;
     if (c.unlock && !extraCards.includes(c.unlock)) return false;
     if (c.id === 'bed_down' && hasBed) return false;
     return true;

@@ -3,6 +3,7 @@
  * Run from web/: npx tsx scripts/combat-check.ts
  */
 import { currentIntent, endTurn, intentView, playCard, scaledDamage, startCombat, applyPoisonTick } from '../src/game/combat';
+import { rewardPool } from '../src/game/cards';
 import { generateAct, mapProblems } from '../src/game/map';
 import { actHpTarget, applyActFloor, applyOffer, rollActOffers } from '../src/game/offers';
 import type { ActOffer } from '../src/game/types';
@@ -240,6 +241,23 @@ const quiet = () => 0.2;
   };
   const survived = applyOffer(sore, soreOffer, null, (defId) => card(`n-${defId}`, defId), rngFrom(1), []);
   assert(survived.ok && sore.hp === 1 && sore.gold === 90, `sore paw leaves 1 HP, got ${sore.hp}`);
+}
+
+{
+  const catPool = rewardPool([], [], 'cat').map((c) => c.id);
+  const leadPool = rewardPool([], [], 'lead').map((c) => c.id);
+  assert(catPool.includes('hairball') && catPool.includes('plague'), 'cat pool has poison cards');
+  assert(!catPool.includes('nip') && !catPool.includes('pack_leader') && !catPool.includes('bed_down'), 'cat pool skips the lead');
+  assert(leadPool.includes('bouncy_corgi') && !leadPool.includes('scratch') && !leadPool.includes('hairball'), 'lead pool skips the cat');
+  const shared = rewardPool(['flutter', 'ferret_bite'], [], 'cat');
+  assert(shared.some((c) => c.id === 'flutter') && shared.some((c) => c.id === 'ferret_bite'), 'unlocks stay shared');
+
+  const combat = fight([card('scratch', 'scratch')]);
+  forceHand(combat, ['scratch']);
+  playCard(combat, 'scratch', quiet);
+  const foe = combat.enemies[0]!;
+  assert(foe.hp === 22, `scratch damage hp ${foe.hp}`);
+  assert(foe.poison === 2, `scratch poison ${foe.poison}`);
 }
 
 if (failed) {

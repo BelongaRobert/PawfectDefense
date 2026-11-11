@@ -1,3 +1,7 @@
+import type { CharacterId } from './characters';
+
+export type { CharacterId };
+
 export type Phase =
   | 'title'
   | 'offer'
@@ -172,6 +176,7 @@ export interface RunState {
   seed: number;
   rng: number;
   act: number;
+  character: CharacterId;
   hp: number;
   maxHp: number;
   gold: number;

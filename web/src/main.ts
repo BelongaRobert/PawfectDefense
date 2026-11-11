@@ -16,6 +16,7 @@ import poundUrl from './assets/combat/pound.webp';
 import captainUrl from './assets/combat/captain.webp';
 import { initNativeShell } from './native';
 import { cardName, cardText, getCard } from './game/cards';
+import { CHARACTERS, getCharacter, type CharacterId } from './game/characters';
 import { intentView } from './game/combat';
 import { getEncounter, getEnemy } from './game/encounters';
 import {
@@ -85,6 +86,8 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 let sheet: { title: string; cards: CardInstance[]; pick: 'shop-remove' | null } | null = null;
 /** Map peek on the act offer. UI-only, so leaving the offer clears it. */
 let offerPeek = false;
+/** Lead chosen on the title screen. The run stores its own copy once Play is pressed. */
+let cast: CharacterId = 'lead';
 
 const ENEMY_ART: Record<string, string> = {
   raccoon: raccoonUrl,
@@ -203,7 +206,11 @@ function onClick(event: MouseEvent): void {
     const guest = !isLoggedIn();
     const msg = guest ? 'Leave this guest run? It will be lost.' : 'Return to the menu? This run stays saved.';
     if (confirm(msg)) bootToTitle();
-  } else if (act === 'again') startRun();
+  } else if (act === 'cast') {
+    if (id === 'cat' || id === 'lead') cast = id;
+    render();
+    return;
+  } else if (act === 'again') startRun(getState().character || 'lead');
   else if (act === 'to-title') bootToTitle();
   else if (act === 'login-hint') nudgeLoginToSave();
 }
@@ -270,7 +277,7 @@ function renderTitle(): string {
       <div class="info-bubble" id="info-bubble" hidden>
         <p>Three acts. Each one starts at 75% HP or higher, then one offer: good, bad, or amazing.</p>
         <p>Spend energy on Attacks, Skills, and Powers. Block lasts through the enemy turn.</p>
-        <p>Enemies show the hit before they take it. Draft toward Strength, Block, or Vulnerable.</p>
+        <p>Pack Lead drafts Strength, Block, or Vulnerable. Barn Cat stacks Poison with smaller hits.</p>
         <p>Guest play is temporary. Log in to keep XP and Continue.</p>
       </div>
 
@@ -307,6 +314,20 @@ function renderTitle(): string {
       }
 
       ${renderRewardBlock()}
+
+      <div class="cast" role="radiogroup" aria-label="Choose a lead">
+        ${(['lead', 'cat'] as const)
+          .map((id) => {
+            const hero = CHARACTERS[id];
+            const on = cast === id;
+            return `<button class="cast-card ${on ? 'is-on' : ''}" type="button" data-act="cast" data-id="${id}" aria-pressed="${on}">
+              <strong>${escapeHtml(hero.name)}</strong>
+              <span>${hero.maxHp} HP</span>
+              <span>${escapeHtml(hero.blurb)}</span>
+            </button>`;
+          })
+          .join('')}
+      </div>
 
       <div class="row-actions play-row">
         <button class="btn play-btn" id="start">${cont ? 'New run' : 'Play'}</button>
@@ -395,7 +416,7 @@ function bindTitle(): void {
   document.getElementById('start')?.addEventListener('click', () => {
     if (nameInput && nameInput.type !== 'hidden') updatePlayerName(nameInput.value);
     if (hasContinue() && !confirm('Start a new run? This replaces your save.')) return;
-    startRun();
+    startRun(cast);
   });
   document.getElementById('continue')?.addEventListener('click', () => continueRun());
   document.getElementById('abandon')?.addEventListener('click', () => {
@@ -969,7 +990,7 @@ function syncCombat(combat: CombatState): void {
       floatNum(you, `+${combat.player.block - prev.playerBlock}`, 'block', cardPlayed);
     }
     if (sameTurn && prev && combat.player.energy < prev.energy) kick(you, 'fx-act');
-    paintPlate(you, combat.player.hp, combat.player.maxHp, statusChips(combat.player), 'Pack Lead');
+    paintPlate(you, combat.player.hp, combat.player.maxHp, statusChips(combat.player), heroName());
   }
   const foes = root.querySelector('.foes');
   if (foes) {
@@ -1005,6 +1026,14 @@ function syncCombat(combat: CombatState): void {
   lastSnap = takeSnap(combat);
 }
 
+function heroName(): string {
+  return getCharacter(getState().character).name;
+}
+
+function heroArt(): string {
+  return getState().character === 'cat' ? kitUrl : leadUrl;
+}
+
 function renderCombat(combat: CombatState): string {
   const prompt = promptText(combat);
   const pending = combat.pending;
@@ -1031,9 +1060,9 @@ function renderCombat(combat: CombatState): string {
       <div class="field" style="background-image:url('${fieldUrl}')">
         <div class="lane">
           <div class="fighter fighter-you fx-enter" data-who="you">
-            <img class="sprite" src="${leadUrl}" alt="" draggable="false" />
+            <img class="sprite" src="${heroArt()}" alt="" draggable="false" />
             <div class="plate">
-              <div class="plate-name">Pack Lead</div>
+              <div class="plate-name">${escapeHtml(heroName())}</div>
               <div class="hpnum">${combat.player.hp}/${combat.player.maxHp}</div>
               <div class="hpbar you"><span style="width:${playerPct}%"></span></div>
               <div class="chips">${statusChips(combat.player)}</div>

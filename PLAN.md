@@ -1,6 +1,6 @@
 # Pawfect Shelter
 
-A combat deckbuilder in the kennel. Pack Lead climbs three acts. Fights are turn-based: health, energy, block, draw and discard piles, and an enemy intent you can read before it lands.
+A combat deckbuilder in the kennel. You pick Pack Lead or Barn Cat and climb three acts. Fights are turn-based: health, energy, block, draw and discard piles, and an enemy intent you can read before it lands.
 
 The playable game is **`web/`**. Unity files under `Assets/` are the old prototype and are not wired up.
 
@@ -33,7 +33,13 @@ Drafts push the deck toward one of three lines. Cards can splash.
 
 **Utility.** Fetch, Shake, Treat. Flea is a curse with no play.
 
-Upgrades change the printed number or the cost. Commons are the role-players, uncommons the enablers, rares the build keys. Later level unlocks add Flutter (a bird multi-hit) and Ferret Bite (poison) to the same reward pool. Cat and reptile leads are future characters, not this pass.
+Upgrades change the printed number or the cost. Commons are the role-players, uncommons the enablers, rares the build keys. Later level unlocks add Flutter (a bird multi-hit) and Ferret Bite (poison) to every lead's reward pool.
+
+## Barn Cat
+
+58 HP, 3 energy, draw 5. Same relics and map. The starter deck is 5 Scratch (4 damage and 2 Poison), 4 Perch (4 block), and 1 Pounce (7 damage and 3 Poison).
+
+Drafts are poison and small hits: Swat, Hairball, Slink, Alley, Lick, Ambush, Yarn, Back Arch, Corner, Plague, and Black Cat. Pack Lead's cards do not appear in this pool. Poison ignores block and drops by 1 at the start of that creature's turn.
 
 ## Enemies
 

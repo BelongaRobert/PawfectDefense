@@ -1,6 +1,6 @@
 # Pawfect Shelter
 
-A portrait deckbuilder about a kennel lead. Fights use health, energy, block, and a telegraphed enemy intent. One character, Pack Lead, drafts toward Strength, Block, or Vulnerable across three acts.
+A portrait deckbuilder about a kennel. Fights use health, energy, block, and a telegraphed enemy intent. Pick Pack Lead (Strength, Block, Vulnerable) or Barn Cat (Poison) and draft across three acts.
 
 **Play:** [https://belongarobert.github.io/PawfectDefense/](https://belongarobert.github.io/PawfectDefense/)
 
@@ -24,9 +24,9 @@ npm run dev
 See [`web/MOBILE.md`](./web/MOBILE.md) for Capacitor / TestFlight.
 
 ### A fight
-Pack Lead starts at 72 HP, 3 energy, and a draw of 5. Block stops damage and lasts through the enemy turn. Weak is 0.75 and Vulnerable is 1.5, applied per hit and floored. Enemies show the attack, including their Strength, before they take it.
+Both leads start with 3 energy and a draw of 5. Pack Lead has 72 HP. Barn Cat has 58. Block stops damage and lasts through the enemy turn. Weak is 0.75 and Vulnerable is 1.5, applied per hit and floored. Poison ignores block, then drops by 1. Enemies show the attack, including their Strength, before they take it.
 
-The starter deck is 5 Nip, 4 Brace, and 1 Bark. The starter relic Warm Kennel heals 6 after a win. You draft the rest of the deck from rewards, the shop, and events.
+Pack Lead's starter deck is 5 Nip, 4 Brace, and 1 Bark. Barn Cat's is 5 Scratch, 4 Perch, and 1 Pounce. Both start with Warm Kennel, which heals 6 after a win. Each lead drafts only their own cards, plus a few shared unlocks.
 
 Win the City Pound at the end of act 3. At 0 HP the run is over.
 
