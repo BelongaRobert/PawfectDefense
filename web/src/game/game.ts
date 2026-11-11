@@ -1,4 +1,5 @@
 import { cardCost, cardName, getCard, rewardPool } from './cards';
+import { getCharacter, type CharacterId } from './characters';
 import {
   cardPlayable,
   chooseExhaust,
@@ -59,6 +60,7 @@ function blankRun(): RunState {
     seed: 1,
     rng: 1,
     act: 1,
+    character: 'lead',
     hp: 72,
     maxHp: 72,
     gold: 0,
@@ -212,7 +214,7 @@ function rollRarity(): 'common' | 'uncommon' | 'rare' {
 }
 
 function rollCardIds(count: number): string[] {
-  const pool = rewardPool(state.perks.extraCards, state.deck);
+  const pool = rewardPool(state.perks.extraCards, state.deck, state.character);
   const out: string[] = [];
   for (let i = 0; i < count; i++) {
     const rarity = rollRarity();
@@ -281,6 +283,7 @@ function openAct(): void {
       relics: state.relics,
       deck: state.deck,
       extraCards: state.perks.extraCards,
+      character: state.character,
     },
     rng,
   );
@@ -487,7 +490,7 @@ export function copyRestoreCode(): string | null {
   return code;
 }
 
-export function startRun(): void {
+export function startRun(character: CharacterId = 'lead'): void {
   if (!profile.name.trim()) {
     profile = setProfileName(profile, isLoggedIn() ? 'Shelter Manager' : 'Guest');
   }
@@ -496,10 +499,12 @@ export function startRun(): void {
   if (isLoggedIn()) clearRun();
   const unlocks = profile.unlocks || [];
   state = blankRun();
+  const hero = getCharacter(character);
   const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
   state.seed = seed || 1;
   state.rng = state.seed;
-  state.maxHp = 72;
+  state.character = hero.id;
+  state.maxHp = hero.maxHp;
   if (hasUnlock(unlocks, 'start_reputation')) state.maxHp += 6;
   if (hasUnlock(unlocks, 'start_kennel')) state.maxHp += 4;
   state.hp = state.maxHp;
@@ -513,7 +518,7 @@ export function startRun(): void {
   if (hasUnlock(unlocks, 'species_bird')) state.perks.extraCards.push('flutter');
   if (hasUnlock(unlocks, 'species_ferret')) state.perks.extraCards.push('ferret_bite');
   if (hasUnlock(unlocks, 'species_hamster')) state.potion = 'heal';
-  const starters = ['nip', 'nip', 'nip', 'nip', 'nip', 'brace', 'brace', 'brace', 'brace', 'bark'];
+  const starters = [...hero.starters];
   if (hasUnlock(unlocks, 'species_rabbit')) starters.push('treat');
   state.deck = starters.map((id) => makeCard(id));
   state.map = generateAct(1, rng);
@@ -529,6 +534,7 @@ export function continueRun(): boolean {
   state = saved;
   if (!state.offers) state.offers = null;
   if (!state.offerPick) state.offerPick = null;
+  if (state.character !== 'cat') state.character = 'lead';
   note('Welcome back.', 'good');
   emit({ flash: 'Continue save loaded' });
   return true;
@@ -548,7 +554,7 @@ export function chooseOffer(id: string): void {
     emit();
     return;
   }
-  const result = applyOffer(state, offer, null, makeCard, rng, state.perks.extraCards);
+  const result = applyOffer(state, offer, null, makeCard, rng, state.perks.extraCards, state.character);
   if (!result.ok) return;
   finishOffer(result.text);
 }
@@ -557,7 +563,7 @@ export function confirmOfferCard(defId: string): void {
   if (state.phase !== 'offer' || !state.offers || !state.offerPick) return;
   const offer = state.offers.find((entry) => entry.id === state.offerPick);
   if (!offer || !offerCardOptions(offer.effect)) return;
-  const result = applyOffer(state, offer, { defId }, makeCard, rng, state.perks.extraCards);
+  const result = applyOffer(state, offer, { defId }, makeCard, rng, state.perks.extraCards, state.character);
   if (!result.ok) return;
   finishOffer(result.text);
 }
@@ -566,7 +572,7 @@ export function confirmOfferDeck(uid: string): void {
   if (state.phase !== 'offer' || !state.offers || !state.offerPick) return;
   const offer = state.offers.find((entry) => entry.id === state.offerPick);
   if (!offer || !offerDeckMode(offer.effect)) return;
-  const result = applyOffer(state, offer, { uid }, makeCard, rng, state.perks.extraCards);
+  const result = applyOffer(state, offer, { uid }, makeCard, rng, state.perks.extraCards, state.character);
   if (!result.ok) return;
   finishOffer(result.text);
 }

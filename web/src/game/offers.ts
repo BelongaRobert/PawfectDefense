@@ -1,7 +1,7 @@
 import { cardName, getCard, rewardPool } from './cards';
 import { getRelic, shopRelicPool } from './relics';
 import { pick, shuffle } from './rng';
-import type { ActOffer, CardInstance, OfferEffect, OfferTier, PotionId } from './types';
+import type { ActOffer, CardInstance, CharacterId, OfferEffect, OfferTier, PotionId } from './types';
 
 const POTION_FACE: Record<PotionId, { name: string; text: string }> = {
   block: { name: 'Block Tonic', text: 'Gain 12 Block.' },
@@ -20,6 +20,7 @@ export interface OfferContext {
   relics: readonly string[];
   deck: readonly CardInstance[];
   extraCards: readonly string[];
+  character: CharacterId;
 }
 
 export interface OfferRun {
@@ -68,7 +69,9 @@ function rollCards(
   count: number,
   reserved: Set<string>,
 ): string[] {
-  const pool = rewardPool(ctx.extraCards, ctx.deck).filter((card) => card.rarity === rarity && !reserved.has(card.id));
+  const pool = rewardPool(ctx.extraCards, ctx.deck, ctx.character).filter(
+    (card) => card.rarity === rarity && !reserved.has(card.id),
+  );
   const ids = shuffle(pool, rng)
     .slice(0, count)
     .map((card) => card.id);
@@ -212,6 +215,7 @@ export function applyOffer(
   mint: (defId: string) => CardInstance,
   rng: () => number,
   extraCards: readonly string[],
+  character: CharacterId = 'lead',
 ): { ok: true; text: string } | { ok: false } {
   const effect = offer.effect;
   switch (effect.op) {
@@ -295,6 +299,7 @@ export function applyOffer(
       const pool = rewardPool(
         extraCards,
         run.deck.filter((entry) => entry.uid !== card.uid),
+        character,
       );
       const options = pool.filter((entry) => entry.id !== card.defId);
       const choice = options.length ? options : pool;
