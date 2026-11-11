@@ -994,18 +994,24 @@ h3 {
 }
 
 .fighter .sprite {
+  --face: 1;
   width: 100%;
   height: 8.4rem;
   object-fit: contain;
   object-position: center bottom;
   filter: drop-shadow(0 10px 6px rgba(40, 28, 10, 0.38));
   transform-origin: 50% 100%;
-  animation: bob 2.8s ease-in-out infinite;
+  transform: scaleX(var(--face));
+  animation: kneel 1.15s ease-in-out infinite;
   pointer-events: none;
 }
 
+.sprite.face-flip {
+  --face: -1;
+}
+
 .fighter-you .sprite {
-  animation-delay: -0.6s;
+  animation-delay: -0.45s;
 }
 
 .sprite.is-shade {
@@ -1070,7 +1076,7 @@ h3 {
   animation: none;
   opacity: 0.55;
   filter: grayscale(0.85) drop-shadow(0 6px 4px rgba(40, 28, 10, 0.25));
-  transform: translateY(10px) rotate(-8deg);
+  transform: translateY(10px) rotate(-8deg) scaleX(var(--face));
 }
 
 .fighter.fx-hurt .sprite {
@@ -1191,49 +1197,52 @@ h3 {
   transition: width 0.35s ease;
 }
 
-@keyframes bob {
+@keyframes kneel {
   0%,
   100% {
-    transform: translateY(0);
+    transform: scale(1, 1) scaleX(var(--face));
   }
-  50% {
-    transform: translateY(-5px);
+  38% {
+    transform: scale(1.06, 0.84) scaleX(var(--face));
+  }
+  70% {
+    transform: scale(0.98, 1.06) scaleX(var(--face));
   }
 }
 
 @keyframes hurt {
   0%,
   100% {
-    transform: translateX(0);
+    transform: translateX(0) scaleX(var(--face));
   }
   25% {
-    transform: translateX(-8px);
+    transform: translateX(-8px) scaleX(var(--face));
     filter: drop-shadow(0 0 8px rgba(196, 92, 74, 0.85));
   }
   55% {
-    transform: translateX(7px);
+    transform: translateX(7px) scaleX(var(--face));
   }
 }
 
 @keyframes lunge {
   0% {
-    transform: translateX(0);
+    transform: translateX(0) scaleX(var(--face));
   }
   45% {
-    transform: translateX(-26px) scale(1.05);
+    transform: translateX(-26px) scale(1.05) scaleX(var(--face));
   }
   100% {
-    transform: translateX(0);
+    transform: translateX(0) scaleX(var(--face));
   }
 }
 
 @keyframes hop {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateY(0) scaleX(var(--face));
   }
   40% {
-    transform: translateY(-12px) translateX(10px);
+    transform: translateY(-12px) translateX(10px) scaleX(var(--face));
   }
 }
 
@@ -1253,18 +1262,18 @@ h3 {
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(18px) scaleX(var(--face));
   }
   to {
     opacity: 1;
-    transform: none;
+    transform: scaleX(var(--face));
   }
 }
 
 @keyframes faint {
   to {
     opacity: 0.45;
-    transform: translateY(14px) rotate(-10deg);
+    transform: translateY(14px) rotate(-10deg) scaleX(var(--face));
     filter: grayscale(1);
   }
 }
@@ -1369,6 +1378,7 @@ h3 {
 
 @media (prefers-reduced-motion: reduce) {
   .fighter .sprite,
+  .fighter.fx-enter .sprite,
   .pcard.fx-draw,
   .pcard.fx-played,
   .pcard.pcard-flight,

@@ -114,6 +114,12 @@ const ENEMY_ART: Record<string, string> = {
   pound: poundUrl,
 };
 
+/**
+ * Painted looking right. Foes stand on the right of the yard, so this art is
+ * mirrored and they look back at the player. Everything else already looks left.
+ */
+const MIRROR_ENEMY = new Set(['captain']);
+
 interface CombatSnap {
   turn: number;
   playerHp: number;
@@ -215,6 +221,12 @@ function onClick(event: MouseEvent): void {
   else if (act === 'login-hint') nudgeLoginToSave();
 }
 
+function clearEntrance(): void {
+  window.setTimeout(() => {
+    app.querySelectorAll('.fx-enter').forEach((el) => el.classList.remove('fx-enter'));
+  }, 560);
+}
+
 function render(): void {
   const s = getState();
   if (sheet?.pick === 'shop-remove' && s.phase !== 'shop') sheet = null;
@@ -252,7 +264,10 @@ function render(): void {
       ${renderSheet()}
     </div>
   `;
-  if (s.phase === 'combat' && s.combat) lastSnap = takeSnap(s.combat);
+  if (s.phase === 'combat' && s.combat) {
+    lastSnap = takeSnap(s.combat);
+    clearEntrance();
+  }
 }
 
 function renderTitle(): string {
@@ -794,6 +809,7 @@ function fighterEnemy(enemy: CombatState['enemies'][number], combat: CombatState
   const pct = Math.max(0, Math.min(100, Math.round((enemy.hp / enemy.maxHp) * 100)));
   const aiming = alive && (combat.pending?.type === 'target' || combat.pending?.type === 'potion');
   const shade = enemy.defId.endsWith('2') || enemy.defId === 'pound_van' ? ' is-shade' : '';
+  const face = MIRROR_ENEMY.has(enemy.defId) ? ' face-flip' : '';
   return `
     <button class="fighter ${fx} ${alive ? '' : 'is-down'} ${aiming ? 'is-aim' : ''}" type="button" data-act="enemy" data-id="${escapeHtml(enemy.uid)}" ${aiming ? '' : 'disabled'}>
       ${
@@ -801,7 +817,7 @@ function fighterEnemy(enemy: CombatState['enemies'][number], combat: CombatState
           ? `<div class="intent-bubble intent-${intent.tone}" data-intent="${escapeHtml(intent.label)} ${escapeHtml(intent.value)}"><span>${escapeHtml(intent.label)}</span><strong>${escapeHtml(intent.value)}</strong></div>`
           : ''
       }
-      <img class="sprite${shade}" src="${enemyArt(enemy.defId)}" alt="" draggable="false" />
+      <img class="sprite${shade}${face}" src="${enemyArt(enemy.defId)}" alt="" draggable="false" />
       <div class="plate">
         <div class="plate-name">${escapeHtml(enemy.name)}</div>
         <div class="hpnum">${Math.max(0, enemy.hp)}/${enemy.maxHp}</div>
@@ -1001,7 +1017,10 @@ function syncCombat(combat: CombatState): void {
         const wrap = document.createElement('div');
         wrap.innerHTML = fighterEnemy(enemy, combat, 'fx-enter').trim();
         node = wrap.firstElementChild as HTMLElement | null;
-        if (node) foes.appendChild(node);
+        if (node) {
+          foes.appendChild(node);
+          clearEntrance();
+        }
       }
       if (!node) continue;
       const before = prev?.enemies[enemy.uid];
@@ -1034,6 +1053,11 @@ function heroArt(): string {
   return getState().character === 'cat' ? kitUrl : leadUrl;
 }
 
+/** Kit is painted looking left. Barn Cat stands on the left, so the portrait is mirrored toward the foe. */
+function heroFace(): string {
+  return getState().character === 'cat' ? ' face-flip' : '';
+}
+
 function renderCombat(combat: CombatState): string {
   const prompt = promptText(combat);
   const pending = combat.pending;
@@ -1060,7 +1084,7 @@ function renderCombat(combat: CombatState): string {
       <div class="field" style="background-image:url('${fieldUrl}')">
         <div class="lane">
           <div class="fighter fighter-you fx-enter" data-who="you">
-            <img class="sprite" src="${heroArt()}" alt="" draggable="false" />
+            <img class="sprite${heroFace()}" src="${heroArt()}" alt="" draggable="false" />
             <div class="plate">
               <div class="plate-name">${escapeHtml(heroName())}</div>
               <div class="hpnum">${combat.player.hp}/${combat.player.maxHp}</div>
